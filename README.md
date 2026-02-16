@@ -13,4 +13,5 @@ Install
 gh extension install agynio/gh-pr-review
 
 # TODO: install using GNU stow
+ln -s <repo>/opencode/skills ~/.opencode/skills
 ```

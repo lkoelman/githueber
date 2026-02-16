@@ -1,6 +1,6 @@
 ---
 name: github-cli
-description: Use GitHub CLI
+description: Use GitHub `gh` client, whenever you're working with GitHub issues or pull requests.
 compatibility: opencode
 allowed-tools:
   - bash
@@ -10,10 +10,28 @@ allowed-tools:
 ## When to use me
 
 When using the GitHub CLI (`gh` command) to perform GitHub-related actions.
-Ask user for confirmation before replying to comments or pushing any information to github.
 
 ## Common GitHub Actions
 
+
+### Issues
+
+```bash
+# list issues with title and label
+gh issue list [--label "bug"] [--label ...] [--milestone "Big Feature"]
+
+# Search issues with GithHub query syntax
+gh issue list --search "error no:assignee sort:created-asc"
+
+# View an issue
+gh issue view {<number> | <url>} [--jq <expr>] [--comments]
+
+# Add issue comment
+gh issue comment {<number> | <url>} [flags] [-b <text>] [-F - <reads stdin>]
+
+# Close issue
+gh issue close {<number> | <url>} [-c <closing-comment>] [-r <reason>]
+```
 
 ### PR Review
 
@@ -30,14 +48,6 @@ gh pr-review review view --pr <pr-number> -R <owner/repo> --unresolved | jq '.re
 
 # Reply to review comment
 gh pr-review comments reply -R owner/repo --pr 123 --thread-id PRRT_kwDOAAABbcdEFG12 --body "Follow-up addressed in commit abc123"
-```
-
-### Find repos with specific files/directories
-
-```bash
-gh search code "path:.skilz" --json repository --jq '.[].repository.fullName'
-gh search code --filename SKILL.md
-gh search code --filename Dockerfile --language python
 ```
 
 ### Create resources
