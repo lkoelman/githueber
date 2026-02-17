@@ -90,7 +90,7 @@ def setup_cron(config_path: Path, schedule: str) -> bool:
     # CRON command
     cron_cmd = (
         f"{schedule} cd {base_dir} && "
-        f"{python_bin} -m issue_processor --config {config_path} "
+        f"{python_bin} -m gh_orchestrator --config {config_path} "
         f">> {base_dir}/logs/cron.log 2>&1"
     )
     
@@ -128,14 +128,14 @@ def setup_cron(config_path: Path, schedule: str) -> bool:
 def main():
     """Main setup function."""
     parser = argparse.ArgumentParser(
-        description="Setup GitHub Issue Processor CRON job",
+        description="Setup GitHub Orchestrator CRON job",
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument(
         '--config',
         type=Path,
-        default=Path('config/issue-processor-config.yaml'),
-        help='Path to configuration file (default: config/issue-processor-config.yaml)'
+        default=Path('config/gh-orchestrator-config.yaml'),
+        help='Path to configuration file (default: config/gh-orchestrator-config.yaml)'
     )
     parser.add_argument(
         '--skip-deps',
@@ -145,7 +145,7 @@ def main():
     
     args = parser.parse_args()
     
-    print("🔧 GitHub Issue Processor Setup")
+    print("🔧 GitHub Orchestrator Setup")
     print("=" * 60)
     
     # Check dependencies
@@ -164,7 +164,7 @@ def main():
     if not args.config.exists():
         print(f"❌ Config file not found: {args.config}")
         print("   Create it from the example:")
-        example = Path('config/issue-processor-config.example.yaml')
+        example = Path('config/gh-orchestrator-config.example.yaml')
         print(f"   cp {example} {args.config}")
         return 1
     
@@ -197,8 +197,8 @@ def main():
     print("\n" + "=" * 60)
     print("✅ Setup complete!")
     print("\nNext steps:")
-    print(f"  1. Test manually: python -m issue_processor --config {args.config}")
-    print("  2. Check logs: tail -f logs/issue-processor.log")
+    print(f"  1. Test manually: python -m gh_orchestrator --config {args.config}")
+    print("  2. Check logs: tail -f logs/gh-orchestrator.log")
     print("  3. View CRON log: tail -f logs/cron.log")
     print("  4. View whiteboard: cat whiteboard/whiteboard.md")
     print("  5. List CRON jobs: crontab -l")

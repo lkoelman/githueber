@@ -1,4 +1,4 @@
-# GitHub Issue Processor - Implementation Notes
+# GitHub Orchestrator - Implementation Notes
 
 ## Implementation Complete ✅
 
@@ -8,49 +8,49 @@ All core components have been implemented according to the plan.
 
 ### Core Components
 
-1. **Data Models** (`scripts/issue_processor/models.py`)
+1. **Data Models** (`src/gh-orchestrator/gh_orchestrator/models.py`)
    - Dataclass-based models for Config, Issue, Comment, etc.
    - Type hints throughout
    - Helper methods for common operations
 
-2. **Configuration Loader** (`scripts/issue_processor/config.py`)
+2. **Configuration Loader** (`src/gh-orchestrator/gh_orchestrator/config.py`)
    - YAML-based configuration
    - Comprehensive validation
    - Clear error messages
 
-3. **GitHub Client** (`scripts/issue_processor/github_client.py`)
+3. **GitHub Client** (`src/gh-orchestrator/gh_orchestrator/github_client.py`)
    - Uses `gh` CLI via subprocess
    - Fetches issues by label
    - Manages issue labels and comments
    - Proper error handling
 
-4. **Lock Manager** (`scripts/issue_processor/lock_manager.py`)
+4. **Lock Manager** (`src/gh-orchestrator/gh_orchestrator/lock_manager.py`)
    - File-based locking using `fcntl`
    - Context manager support
    - Timeout handling
 
-5. **Whiteboard Manager** (`scripts/issue_processor/whiteboard.py`)
+5. **Whiteboard Manager** (`src/gh-orchestrator/gh_orchestrator/whiteboard.py`)
    - Markdown-based state tracking
    - Tracks active jobs, completions, failures
    - Auto-truncates to last 20 entries
 
-6. **OpenCode Runner** (`scripts/issue_processor/opencode_runner.py`)
+6. **OpenCode Runner** (`src/gh-orchestrator/gh_orchestrator/opencode_runner.py`)
    - Executes OpenCode with agents
    - Separate methods for plan/build modes
    - **NOTE**: Plan extraction needs testing with actual OpenCode output
 
-7. **Workflow Manager** (`scripts/issue_processor/workflows.py`)
+7. **Workflow Manager** (`src/gh-orchestrator/gh_orchestrator/workflows.py`)
    - Direct agent execution
    - Plan/build workflow
    - Plan approval and revision
    - Comprehensive error handling
 
-8. **Main Processor** (`scripts/issue_processor/processor.py`)
+8. **Main Processor** (`src/gh-orchestrator/gh_orchestrator/processor.py`)
    - Coordinates all components
    - Handles concurrent processing
    - Fetches and routes issues
 
-9. **CLI Interface** (`scripts/issue_processor/cli.py` + `__main__.py`)
+9. **CLI Interface** (`src/gh-orchestrator/gh_orchestrator/cli.py` + `__main__.py`)
    - Argparse-based CLI
    - Logging setup
    - Lock acquisition
@@ -60,9 +60,9 @@ All core components have been implemented according to the plan.
 - **setup.py** & **pyproject.toml**: Package configuration
 - **requirements.txt**: Python dependencies (PyYAML)
 - **setup-cron.py**: Interactive CRON setup script
-- **config/issue-processor-config.example.yaml**: Documented example config
+- **config/gh-orchestrator-config.example.yaml**: Documented example config
 - **whiteboard/whiteboard-template.md**: Template for state tracking
-- **tests/**: Basic unit tests for config and lock manager
+- **src/gh-orchestrator/tests/**: Basic unit tests for config and lock manager
 - **README.md**: Comprehensive documentation
 - **.gitignore**: Proper exclusions
 
@@ -73,14 +73,14 @@ All core components have been implemented according to the plan.
 pip install -e .
 
 # 2. Configure
-cp config/issue-processor-config.example.yaml config/issue-processor-config.yaml
-nano config/issue-processor-config.yaml
+cp config/gh-orchestrator-config.example.yaml config/gh-orchestrator-config.yaml
+nano config/gh-orchestrator-config.yaml
 
 # 3. Setup CRON
 ./setup-cron.py
 
 # 4. Test manually
-python3 -m issue_processor --config config/issue-processor-config.yaml
+python3 -m gh_orchestrator --config config/gh-orchestrator-config.yaml
 ```
 
 ## Testing Status
@@ -149,10 +149,10 @@ python3 -m issue_processor --config config/issue-processor-config.yaml
 3. **Test Manually**
    ```bash
    # Without lock for safety
-   python3 -m issue_processor --config config/issue-processor-config.yaml --no-lock
+   python3 -m gh_orchestrator --config config/gh-orchestrator-config.yaml --no-lock
    
    # Check logs
-   tail -f logs/issue-processor.log
+   tail -f logs/gh-orchestrator.log
    
    # Check whiteboard
    cat whiteboard/whiteboard.md
@@ -229,8 +229,8 @@ python3 -m issue_processor --config config/issue-processor-config.yaml
 
 ```
 agents-config/
-├── scripts/issue_processor/    # Main package (12 modules)
-├── tests/                       # Unit tests
+├── src/gh-orchestrator/gh_orchestrator/    # Main package (12 modules)
+├── src/gh-orchestrator/tests/                       # Unit tests
 ├── config/                      # Configuration files
 ├── whiteboard/                  # State tracking
 ├── logs/                        # Log files
@@ -244,13 +244,13 @@ agents-config/
 ## Critical Files to Review
 
 1. **opencode_runner.py**: Update `extract_plan()` after testing
-2. **config/issue-processor-config.yaml**: Must be configured before use
+2. **config/gh-orchestrator-config.yaml**: Must be configured before use
 3. **workflows.py**: Core business logic, review for your use case
 
 ## Support
 
 For issues:
-1. Check logs: `tail -f logs/issue-processor.log`
+1. Check logs: `tail -f logs/gh-orchestrator.log`
 2. Check whiteboard: `cat whiteboard/whiteboard.md`
 3. Test manually with `--no-lock`
 4. Check OpenCode separately

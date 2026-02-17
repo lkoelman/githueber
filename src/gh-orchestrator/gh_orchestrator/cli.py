@@ -1,4 +1,4 @@
-"""CLI interface for issue processor."""
+"""CLI interface for GitHub Orchestrator."""
 
 import argparse
 import logging
@@ -57,11 +57,11 @@ def main() -> int:
         Exit code (0 for success, non-zero for error)
     """
     parser = argparse.ArgumentParser(
-        description="GitHub Issue Processor - Automated issue processing with OpenCode",
+        description="GitHub Orchestrator - Automated GitHub issue orchestration with OpenCode",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s --config config/issue-processor-config.yaml
+  %(prog)s --config config/gh-orchestrator-config.yaml
   %(prog)s --config myconfig.yaml --dry-run
   %(prog)s --config myconfig.yaml --no-lock
 """
@@ -70,8 +70,8 @@ Examples:
     parser.add_argument(
         '--config',
         type=Path,
-        default=Path('config/issue-processor-config.yaml'),
-        help='Path to configuration file (default: config/issue-processor-config.yaml)'
+        default=Path('config/gh-orchestrator-config.yaml'),
+        help='Path to configuration file (default: config/gh-orchestrator-config.yaml)'
     )
     
     parser.add_argument(
@@ -114,7 +114,7 @@ Examples:
     logger = logging.getLogger(__name__)
     
     logger.info("=" * 60)
-    logger.info("GitHub Issue Processor Starting")
+    logger.info("GitHub Orchestrator Starting")
     logger.info("=" * 60)
     logger.info(f"Configuration: {args.config}")
     logger.info(f"Repository: {config.github.repo_fullname}")
@@ -157,9 +157,9 @@ Examples:
             exit_code = 1
     
     if exit_code == 0:
-        logger.info("GitHub Issue Processor Completed Successfully")
+        logger.info("GitHub Orchestrator Completed Successfully")
     else:
-        logger.error("GitHub Issue Processor Completed With Errors")
+        logger.error("GitHub Orchestrator Completed With Errors")
     
     return exit_code
 

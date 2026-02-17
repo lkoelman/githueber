@@ -1,5 +1,5 @@
-# GitHub Issue Processor Configuration
-# Copy this file to issue-processor-config.yaml and customize
+# GitHub Orchestrator Configuration
+# Copy this file to gh-orchestrator-config.yaml and customize
 
 # GitHub repository settings
 github:
@@ -82,7 +82,7 @@ whiteboard:
 # Logging configuration
 logging:
   # Path to log file
-  log_file: "logs/issue-processor.log"
+  log_file: "logs/gh-orchestrator.log"
   
   # Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
   log_level: "INFO"

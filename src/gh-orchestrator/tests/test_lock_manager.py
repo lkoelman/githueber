@@ -2,7 +2,7 @@
 
 import pytest
 from pathlib import Path
-from issue_processor.lock_manager import LockManager, LockError
+from gh_orchestrator.lock_manager import LockManager, LockError
 
 
 def test_acquire_and_release_lock(tmp_path):

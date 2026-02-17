@@ -22,23 +22,29 @@ wheels/
 
 # Virtual environments
 venv/
-ENV/
 env/
+ENV/
+.venv/
 
-# IDEs
+# uv
+uv.lock
+
+# IDE
 .vscode/
 .idea/
-*.swp
-*.swo
-*~
 
-# Logs
+# Runtime data
+config/gh-orchestrator-config.yaml
 logs/*.log
-logs/cron.log
-*.log
-
-# Whiteboard and state
 whiteboard/whiteboard.md
+
+# Old structure (migrated)
+scripts/issue_processor/
+tests/test_*.py
+requirements.txt
+requirements-dev.txt
+setup.py
+config/issue-processor-config.yaml
 whiteboard/whiteboard.md.lock
 
 # Configuration (keep examples)

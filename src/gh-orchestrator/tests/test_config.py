@@ -2,8 +2,8 @@
 
 import pytest
 from pathlib import Path
-from issue_processor.config import ConfigLoader, ConfigError
-from issue_processor.models import Config
+from gh_orchestrator.config import ConfigLoader, ConfigError
+from gh_orchestrator.models import Config
 
 
 def test_load_config_missing_file():

@@ -1,17 +1,18 @@
 [build-system]
-requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
-name = "issue-processor"
+name = "gh-orchestrator"
 version = "1.0.0"
-description = "Automated GitHub issue processing with OpenCode agents"
+description = "Automated GitHub issue orchestration with OpenCode agents"
 readme = "README.md"
 requires-python = ">=3.9"
 license = {text = "MIT"}
 authors = [
     {name = "OpenCode"}
 ]
+keywords = ["github", "automation", "opencode", "ci", "orchestration"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -22,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
+
 dependencies = [
     "PyYAML>=6.0",
 ]
@@ -30,13 +32,38 @@ dependencies = [
 dev = [
     "pytest>=7.0",
     "pytest-mock>=3.0",
+    "pytest-cov>=4.0",
 ]
 
 [project.scripts]
-issue-processor = "issue_processor.cli:main"
+gh-orchestrator = "gh_orchestrator.cli:main"
 
-[tool.setuptools]
-package-dir = {"" = "scripts"}
+[project.urls]
+Homepage = "https://github.com/your-org/agents-config"
+Documentation = "https://github.com/your-org/agents-config/blob/main/README.md"
+Repository = "https://github.com/your-org/agents-config"
+Issues = "https://github.com/your-org/agents-config/issues"
 
-[tool.setuptools.packages.find]
-where = ["scripts"]
+[tool.hatch.build.targets.wheel]
+packages = ["src/gh-orchestrator/gh_orchestrator"]
+
+[tool.pytest.ini_options]
+testpaths = ["src/gh-orchestrator/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --strict-markers"
+
+[tool.coverage.run]
+source = ["gh_orchestrator"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]

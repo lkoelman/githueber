@@ -4,11 +4,11 @@ Configuration for coding agents
 ## Contents
 
 - **OpenCode Skills**: Custom skills for OpenCode agents
-- **GitHub Issue Processor**: Automated issue processing system
+- **GitHub Orchestrator**: Automated issue processing system
 
 ---
 
-# GitHub Issue Processor
+# GitHub Orchestrator
 
 Automated GitHub issue processing using OpenCode agents. This system monitors GitHub issues with specific labels and automatically processes them using OpenCode, with support for both direct agent execution and plan/build workflows with approval mechanisms.
 
@@ -40,17 +40,17 @@ Automated GitHub issue processing using OpenCode agents. This system monitors Gi
 pip install -e .
 
 # 2. Configure
-cp config/issue-processor-config.example.yaml config/issue-processor-config.yaml
-nano config/issue-processor-config.yaml
+cp config/gh-orchestrator-config.example.yaml config/gh-orchestrator-config.yaml
+nano config/gh-orchestrator-config.yaml
 
 # 3. Authenticate GitHub
 gh auth login
 
 # 4. Setup CRON
-./setup-cron.py
+./src/gh-orchestrator/setup_cron.py
 
 # 5. Test manually
-issue-processor --config config/issue-processor-config.yaml
+gh-orchestrator --config config/gh-orchestrator-config.yaml
 ```
 
 ## Installation
@@ -65,16 +65,16 @@ pip install -e .
 pip install -e .[dev]
 ```
 
-This creates the `issue-processor` command in your PATH.
+This creates the `gh-orchestrator` command in your PATH.
 
 ### 2. Configure
 
 ```bash
 # Copy example configuration
-cp config/issue-processor-config.example.yaml config/issue-processor-config.yaml
+cp config/gh-orchestrator-config.example.yaml config/gh-orchestrator-config.yaml
 
 # Edit configuration
-nano config/issue-processor-config.yaml
+nano config/gh-orchestrator-config.yaml
 ```
 
 Key configuration fields:
@@ -94,7 +94,7 @@ gh auth login
 ### 4. Setup CRON Job
 
 ```bash
-./setup-cron.py --config config/issue-processor-config.yaml
+./src/gh-orchestrator/setup_cron.py --config config/gh-orchestrator-config.yaml
 ```
 
 ## Usage
@@ -103,13 +103,13 @@ gh auth login
 
 ```bash
 # Run with default config
-issue-processor
+gh-orchestrator
 
 # Run with custom config
-issue-processor --config path/to/config.yaml
+gh-orchestrator --config path/to/config.yaml
 
 # Run without lock (for testing)
-issue-processor --no-lock
+gh-orchestrator --no-lock
 ```
 
 ### Workflow Examples
@@ -137,7 +137,7 @@ issue-processor --no-lock
 
 ## Configuration
 
-See `config/issue-processor-config.example.yaml` for all options.
+See `config/gh-orchestrator-config.example.yaml` for all options.
 
 ### Label Configuration
 
@@ -166,7 +166,7 @@ cat whiteboard/whiteboard.md
 ### View Logs
 
 ```bash
-tail -f logs/issue-processor.log
+tail -f logs/gh-orchestrator.log
 tail -f logs/cron.log
 ```
 
@@ -201,12 +201,12 @@ pytest tests/
 
 ```
 agents-config/
-├── scripts/issue_processor/     # Main package
+├── src/gh-orchestrator/gh_orchestrator/     # Main package
 ├── tests/                        # Unit tests
 ├── config/                       # Configuration
 ├── whiteboard/                   # State tracking
 ├── logs/                         # Log files
-└── setup-cron.py                 # CRON setup
+└── src/gh-orchestrator/setup_cron.py                 # CRON setup
 ```
 
 ## CRON Management
@@ -218,8 +218,8 @@ crontab -l
 # Edit jobs
 crontab -e
 
-# Remove issue-processor job
-crontab -l | grep -v 'issue-processor' | crontab -
+# Remove gh-orchestrator job
+crontab -l | grep -v 'gh-orchestrator' | crontab -
 ```
 
 ## Credits

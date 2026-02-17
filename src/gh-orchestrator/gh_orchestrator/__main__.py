@@ -1,4 +1,4 @@
-"""Main entry point for running as module: python -m issue_processor"""
+"""Main entry point for running as module: python -m gh_orchestrator"""
 
 import sys
 from .cli import main

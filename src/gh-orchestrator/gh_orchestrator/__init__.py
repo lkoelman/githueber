@@ -1,4 +1,4 @@
-"""GitHub Issue Processor - Automated issue processing with OpenCode."""
+"""GitHub Orchestrator - Automated GitHub issue orchestration with OpenCode agents."""
 
 __version__ = "1.0.0"
 __author__ = "OpenCode"
