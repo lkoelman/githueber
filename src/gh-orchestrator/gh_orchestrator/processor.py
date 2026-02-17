@@ -17,54 +17,53 @@ logger = logging.getLogger(__name__)
 
 class IssueProcessor:
     """Main issue processing coordinator."""
-    
+
     def __init__(self, config: Config):
         """
         Initialize issue processor.
-        
+
         Args:
             config: Configuration
         """
         self.config = config
-        
+
         # Initialize components
-        self.github = GitHubClient(
-            config.github.repo_owner,
-            config.github.repo_name
-        )
-        
+        self.github = GitHubClient(config.github.repo_owner, config.github.repo_name)
+
         self.opencode = OpenCodeRunner(
-            Path(config.github.target_repo_path),
-            config.execution.opencode_model
+            Path(config.github.target_repo_path), config.execution.opencode_model
         )
-        
+
         self.whiteboard = Whiteboard(Path(config.whiteboard.path))
-        
+
         self.workflow = WorkflowManager(
-            config,
-            self.github,
-            self.opencode,
-            self.whiteboard
+            config, self.github, self.opencode, self.whiteboard
         )
-    
+
     def run(self) -> None:
         """Main processing loop."""
         logger.info("=" * 60)
         logger.info("Starting issue processing run")
         logger.info("=" * 60)
-        
+
         # Fetch issues
         logger.info(f"Fetching issues with label '{self.config.labels.queue_label}'")
-        queue_issues = self.github.fetch_issues_by_label(self.config.labels.queue_label)
-        
-        logger.info(f"Fetching issues with label '{self.config.labels.await_plan_label}'")
-        await_plan_issues = self.github.fetch_issues_by_label(self.config.labels.await_plan_label)
-        
+        queue_issues: list[Issue] = self.github.fetch_issues_by_label(
+            self.config.labels.queue_label
+        )
+
+        logger.info(
+            f"Fetching issues with label '{self.config.labels.await_plan_label}'"
+        )
+        await_plan_issues: list[Issue] = self.github.fetch_issues_by_label(
+            self.config.labels.await_plan_label
+        )
+
         logger.info(
             f"Found {len(queue_issues)} queued issue(s), "
             f"{len(await_plan_issues)} awaiting plan approval"
         )
-        
+
         # Process approval checks first (faster, no OpenCode execution)
         if await_plan_issues:
             logger.info("Processing approval checks...")
@@ -73,10 +72,9 @@ class IssueProcessor:
                     self.workflow.check_and_process_approval(issue)
                 except Exception as e:
                     logger.error(
-                        f"Error processing approval for {issue}: {e}",
-                        exc_info=True
+                        f"Error processing approval for {issue}: {e}", exc_info=True
                     )
-        
+
         # Process new issues
         if not queue_issues:
             logger.info("No new issues to process")
@@ -87,48 +85,44 @@ class IssueProcessor:
                 try:
                     self._process_issue(issue)
                 except Exception as e:
-                    logger.error(
-                        f"Error processing {issue}: {e}",
-                        exc_info=True
-                    )
+                    logger.error(f"Error processing {issue}: {e}", exc_info=True)
         else:
             # Parallel processing
             logger.info(
                 f"Processing issues in parallel "
                 f"(concurrency={self.config.execution.concurrency})..."
             )
-            with ThreadPoolExecutor(max_workers=self.config.execution.concurrency) as executor:
+            with ThreadPoolExecutor(
+                max_workers=self.config.execution.concurrency
+            ) as executor:
                 futures = {
                     executor.submit(self._process_issue, issue): issue
                     for issue in queue_issues
                 }
-                
+
                 for future in as_completed(futures):
                     issue = futures[future]
                     try:
                         future.result()
                     except Exception as e:
-                        logger.error(
-                            f"Error processing {issue}: {e}",
-                            exc_info=True
-                        )
-        
+                        logger.error(f"Error processing {issue}: {e}", exc_info=True)
+
         logger.info("=" * 60)
         logger.info("Issue processing run completed")
         logger.info("=" * 60)
-    
+
     def _process_issue(self, issue: Issue) -> None:
         """
         Process a single issue.
-        
+
         Args:
             issue: Issue to process
         """
         logger.info(f"Processing {issue}")
-        
+
         # Determine agent
         agent_name = self._determine_agent(issue)
-        
+
         if agent_name:
             # Direct agent execution
             logger.info(f"{issue} will use agent '{agent_name}'")
@@ -137,14 +131,14 @@ class IssueProcessor:
             # Plan/build workflow
             logger.info(f"{issue} will use plan/build mode")
             self.workflow.run_plan_build(issue)
-    
+
     def _determine_agent(self, issue: Issue) -> Optional[str]:
         """
         Determine which agent to use based on labels.
-        
+
         Args:
             issue: Issue to check
-            
+
         Returns:
             Agent name or None for plan/build mode
         """
@@ -155,6 +149,6 @@ class IssueProcessor:
                     f"{issue} mapped to agent '{agent_name}' via label '{label}'"
                 )
                 return agent_name
-        
+
         logger.debug(f"{issue} has no agent mapping")
         return None
