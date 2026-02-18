@@ -1,0 +1,27 @@
+# .stow-local-ignore
+#
+# Files and patterns to exclude from GNU Stow symlinking
+# See: man stow
+
+# Exclude README and documentation files
+^/README.*
+^/.*\.md$
+
+# Exclude version control
+^/\.git
+^/\.gitignore
+
+# Exclude editor and IDE files
+^/\.vscode
+^/\.idea
+.*~$
+\#.*\#$
+
+# Exclude backup files
+.*\.bak$
+.*\.swp$
+.*\.swo$
+
+# Exclude OS files
+^/\.DS_Store
+^/Thumbs\.db

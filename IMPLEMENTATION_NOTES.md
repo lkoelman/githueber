@@ -256,6 +256,29 @@ For issues:
 4. Check OpenCode separately
 5. Verify gh CLI works: `gh auth status`
 
+## OpenCode Configuration Management (Updated Feb 2026)
+
+### GNU Stow Migration
+
+The OpenCode agents and skills installation has been modernized to use GNU Stow instead of manual symlinks.
+
+**What changed:**
+- **Directory structure**: Moved from `opencode/{agents,skills}` to `opencode/.opencode/{agents,skills}`
+- **Installation method**: Manual `ln -s` commands replaced with automated scripts using GNU Stow
+- **Scripts added**:
+  - `install-opencode-config.sh` - Automated installation with conflict detection
+  - `uninstall-opencode-config.sh` - Clean removal of configurations
+
+**Benefits:**
+- Atomic installation/uninstallation
+- Better conflict detection and handling
+- Easier to update (just re-run stow)
+- Standard approach used by dotfile managers
+- Cleaner separation of concerns
+
+**Migration for existing users:**
+The installation script automatically detects and removes old manual symlinks with user confirmation.
+
 ## Conclusion
 
 The system is **fully implemented** and **ready for testing**. The only critical unknown is the OpenCode output format, which needs to be verified with actual execution.
