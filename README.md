@@ -382,28 +382,31 @@ All files are symlinked to this repository, so updates are automatically reflect
 
 # Gemini CLI Configuration
 
-This repository provides custom agents and skills for Gemini CLI.
+This repository provides custom agents and skills for Gemini CLI. Installation is managed using [GNU Stow](https://www.gnu.org/software/stow/), which creates symlinks from `~/.gemini/` to this repository.
 
 ## Installation
 
-### 1. Install Custom Agents
+### 1. Install GNU Stow
 
-Copy the agent definition files to your global Gemini CLI agents directory:
+If not already installed (see OpenCode Configuration above).
 
-```bash
-mkdir -p ~/.gemini/agents
-cp gemini-cli/agents/*.md ~/.gemini/agents/
-```
-
-### 2. Install Custom Skills
-
-Install the custom skills using the Gemini CLI `skills install` command:
+### 2. Install Configuration with Stow
 
 ```bash
-gemini skills install gemini-cli/skills/github-cli
+# From the repository root
+stow -v -R -t ~ gemini-cli
 ```
 
-### 3. Reload Skills
+### 3. Verify Installation
+
+Check that the symlinks were created correctly:
+
+```bash
+ls -la ~/.gemini/agents/
+ls -la ~/.gemini/skills/
+```
+
+### 4. Reload Skills
 
 After installation, reload the skills in your interactive Gemini CLI session to enable them:
 
@@ -415,8 +418,9 @@ After installation, reload the skills in your interactive Gemini CLI session to 
 
 - **agents/**: Custom Gemini CLI agent configurations
   - `autoplan.md` - Plans code changes before execution
-  - `search-grounding.md` - Web search with grounded results
-  - `search-grounding-subagent.md` - Search agent for subagent use
+  - `plan-writer.md` - Writes plans for changes
 
 - **skills/**: Custom Gemini CLI skills
   - `github-cli/` - GitHub CLI integration skill
+
+All files are symlinked to this repository.
