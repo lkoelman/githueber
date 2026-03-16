@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = {text = "MIT"}
 authors = [
-    {name = "OpenCode"}
+    {name = "Lucas Koelman"}
 ]
 keywords = ["github", "automation", "opencode", "ci", "orchestration"]
 classifiers = [

@@ -3,8 +3,8 @@ Configuration for coding agents
 
 ## Contents
 
-- **OpenCode Skills**: Custom skills for OpenCode agents
 - **GitHub Orchestrator**: Automated issue processing system
+- **Agent Definitions & Skills**: Custom skills for OpenCode agents
 
 ---
 
@@ -228,7 +228,7 @@ Built with [OpenCode](https://opencode.ai/), [GitHub CLI](https://cli.github.com
 
 ---
 
-# OpenCode Configuration Installation
+# Agent Definitions & Skills
 
 This repository provides custom agents and skills for OpenCode. Installation is managed using [GNU Stow](https://www.gnu.org/software/stow/), which creates symlinks from `~/.opencode/` to this repository.
 
@@ -236,27 +236,7 @@ This repository provides custom agents and skills for OpenCode. Installation is 
 
 ### 1. Install GNU Stow
 
-Choose the appropriate command for your system:
-
-**Debian/Ubuntu:**
-```bash
-sudo apt-get install stow
-```
-
-**macOS:**
-```bash
-brew install stow
-```
-
-**Arch Linux:**
-```bash
-sudo pacman -S stow
-```
-
-**Fedora/RHEL:**
-```bash
-sudo dnf install stow
-```
+For example, on Debian/Ubuntu: `sudo apt-get install stow`.
 
 ### 2. Install GitHub CLI
 
@@ -273,7 +253,7 @@ gh extension install agynio/gh-pr-review
 ### Option 1: Using the Installation Script (Recommended)
 
 ```bash
-./install-opencode-config.sh
+./scripts/install-opencode-config.sh
 ```
 
 This script will:
@@ -331,7 +311,7 @@ The `-R` (restow) flag safely updates symlinks.
 ### Option 1: Using the Uninstallation Script
 
 ```bash
-./uninstall-opencode-config.sh
+./scripts/uninstall-opencode-config.sh
 ```
 
 This script will:
@@ -391,7 +371,7 @@ After installation, `~/.opencode/` will contain:
   - `autoplan.md` - Plans code changes before execution
   - `search-grounding.md` - Web search with grounded results
   - `search-grounding-subagent.md` - Search agent for subagent use
-  
+
 - **skills/**: Custom OpenCode skills
   - `github-cli/` - GitHub CLI integration skill
 
