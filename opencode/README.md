@@ -1,0 +1,1 @@
+OpenCode agent and skill definitions live in the hidden folder [./opencode/](./opencode/). See the project README for installation instructions using GNU Stow.
