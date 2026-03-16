@@ -38,15 +38,6 @@ config/gh-orchestrator-config.yaml
 logs/*.log
 whiteboard/whiteboard.md
 
-# Old structure (migrated)
-scripts/issue_processor/
-tests/test_*.py
-requirements.txt
-requirements-dev.txt
-setup.py
-config/issue-processor-config.yaml
-whiteboard/whiteboard.md.lock
-
 # Configuration (keep examples)
 config/issue-processor-config.yaml
 

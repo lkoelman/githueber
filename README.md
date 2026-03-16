@@ -4,7 +4,8 @@ Configuration for coding agents
 ## Contents
 
 - **GitHub Orchestrator**: Automated issue processing system
-- **Agent Definitions & Skills**: Custom skills for OpenCode agents
+- **OpenCode Configuration**: Custom agents and skills for OpenCode
+- **Gemini CLI Configuration**: Custom agents and skills for Gemini CLI
 
 ---
 
@@ -228,7 +229,7 @@ Built with [OpenCode](https://opencode.ai/), [GitHub CLI](https://cli.github.com
 
 ---
 
-# Agent Definitions & Skills
+# OpenCode Configuration
 
 This repository provides custom agents and skills for OpenCode. Installation is managed using [GNU Stow](https://www.gnu.org/software/stow/), which creates symlinks from `~/.opencode/` to this repository.
 
@@ -376,3 +377,46 @@ After installation, `~/.opencode/` will contain:
   - `github-cli/` - GitHub CLI integration skill
 
 All files are symlinked to this repository, so updates are automatically reflected after pulling changes and restowing.
+
+---
+
+# Gemini CLI Configuration
+
+This repository provides custom agents and skills for Gemini CLI.
+
+## Installation
+
+### 1. Install Custom Agents
+
+Copy the agent definition files to your global Gemini CLI agents directory:
+
+```bash
+mkdir -p ~/.gemini/agents
+cp gemini-cli/agents/*.md ~/.gemini/agents/
+```
+
+### 2. Install Custom Skills
+
+Install the custom skills using the Gemini CLI `skills install` command:
+
+```bash
+gemini skills install gemini-cli/skills/github-cli
+```
+
+### 3. Reload Skills
+
+After installation, reload the skills in your interactive Gemini CLI session to enable them:
+
+```bash
+/skills reload
+```
+
+## What Gets Installed
+
+- **agents/**: Custom Gemini CLI agent configurations
+  - `autoplan.md` - Plans code changes before execution
+  - `search-grounding.md` - Web search with grounded results
+  - `search-grounding-subagent.md` - Search agent for subagent use
+
+- **skills/**: Custom Gemini CLI skills
+  - `github-cli/` - GitHub CLI integration skill
