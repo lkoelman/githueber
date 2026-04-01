@@ -4,6 +4,7 @@ Configuration for coding agents
 ## Contents
 
 - **GitHub Orchestrator**: Automated issue processing system
+- **OpenCode GitHub Buddy**: Bun/TypeScript daemon that bridges GitHub issue state to OpenCode over ACP
 - **OpenCode Configuration**: Custom agents and skills for OpenCode
 - **Gemini CLI Configuration**: Custom agents and skills for Gemini CLI
 
@@ -11,28 +12,11 @@ Configuration for coding agents
 
 # GitHub Orchestrator
 
-Automated GitHub issue processing using OpenCode agents. This system monitors GitHub issues with specific labels and automatically processes them using OpenCode, with support for both direct agent execution and plan/build workflows with approval mechanisms.
+Simple prototype of python-based orchestrator [gh-orchestrator/README.md](./gh-orchestrator/README.md)
 
-## Features
+## OpenCode GitHub Buddy
 
-- **Automated Issue Processing**: Monitors GitHub issues and processes them automatically
-- **Multiple Workflow Modes**:
-  - Direct agent execution for specific issue types
-  - Plan/build workflow with optional approval
-  - Plan revision based on feedback
-- **Label-Based State Management**: Uses GitHub labels to track processing state
-- **Concurrent Processing**: Configurable parallelism for handling multiple issues
-- **File-Based Locking**: Prevents race conditions when multiple instances run
-- **Whiteboard Tracking**: Markdown-based state tracking for active jobs
-- **Comprehensive Logging**: Detailed logging to file and console
-- **CRON Integration**: Easy setup for scheduled execution
-
-## Requirements
-
-- **Python**: 3.9 or higher
-- **gh CLI**: GitHub CLI for API access ([install](https://cli.github.com/))
-- **opencode**: OpenCode CLI ([install](https://opencode.ai/))
-- **PyYAML**: Python YAML parser (installed automatically)
+TypeScript/Bun daemon scaffold: [opencode-gh-buddy/README.md](./opencode-gh-buddy/README.md)
 
 ## Quick Start
 

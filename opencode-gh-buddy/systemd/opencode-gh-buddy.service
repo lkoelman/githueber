@@ -1,0 +1,16 @@
+[Unit]
+Description=OpenCode GitHub Buddy Daemon
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/opencode-gh-buddy
+ExecStart=/home/lkoel/.bun/bin/bun run /opt/opencode-gh-buddy/dist/index.js
+Restart=on-failure
+RestartSec=5
+EnvironmentFile=/etc/opencode-gh-buddy/.env
+ProtectSystem=full
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

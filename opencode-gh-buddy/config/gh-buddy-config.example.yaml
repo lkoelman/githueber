@@ -1,0 +1,41 @@
+# GitHub repository settings
+github:
+  repo_owner: "your-org"
+  repo_name: "your-repo"
+  target_repo_path: "/path/to/your/repo"
+
+# Label-based state machine
+labels:
+  queue_label: "agent-queue"
+  processing_label: "agent-processing"
+  await_plan_label: "await-plan"
+  completed_label: "agent-completed"
+  failed_label: "agent-failed"
+  revising_label: "agent-revising"
+
+# Map issue labels to OpenCode agents
+agent_mapping:
+  "bug-fix": "github-worker-agent"
+  "feature-request": "github-worker-agent"
+  "epic": "github-orchestrator-agent"
+  "refactor": "github-orchestrator-agent"
+
+execution:
+  auto_approve: false
+  concurrency: 1
+  approval_comment: "/approve"
+  revise_comment: "/revise"
+  opencode_model: null
+  timeout: 3600
+
+polling:
+  interval_ms: 300000
+
+acp:
+  endpoint: "http://127.0.0.1:9000"
+
+ipc:
+  socket_path: "/tmp/opencode-gh-buddy.sock"
+
+logging:
+  log_level: "info"

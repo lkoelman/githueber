@@ -1,0 +1,20 @@
+{
+  "name": "opencode-gh-buddy",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "gh-buddy": "./dist/cli.js"
+  },
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "test": "bun test",
+    "build": "bun build ./src/index.ts --target=bun --outfile=dist/index.js",
+    "build:cli": "bun build ./src/cli/index.ts --target=bun --outfile=dist/cli.js",
+    "build:all": "bun run build && bun run build:cli"
+  },
+  "dependencies": {
+    "@agentclientprotocol/sdk": "^0.6.0",
+    "@octokit/rest": "^22.0.0"
+  }
+}
