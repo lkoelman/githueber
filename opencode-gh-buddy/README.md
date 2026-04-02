@@ -37,7 +37,7 @@ Edit these values before running:
 
 - `github.repo_owner`
 - `github.repo_name`
-- `github.target_repo_path`
+- `github.local_repo_path`
 - `acp.endpoint`
 
 Export the daemon environment:

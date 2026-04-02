@@ -64,7 +64,7 @@ const sessionConfig = {
 
     TARGET ISSUE: #${issue.number}
     TITLE: ${issue.title}
-    REPOSITORY PATH: ${config.target_repo_path}
+    REPOSITORY PATH: ${config.local_repo_path}
 
     ACTION REQUIRED:
     Checkout to the repository path.

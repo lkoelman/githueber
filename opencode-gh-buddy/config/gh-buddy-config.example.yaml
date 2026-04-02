@@ -2,7 +2,7 @@
 github:
   repo_owner: "your-org"
   repo_name: "your-repo"
-  target_repo_path: "/path/to/your/repo"
+  local_repo_path: "/path/to/your/repo"
 
 # Label-based state machine
 labels:

@@ -54,7 +54,7 @@ export class ConfigManager {
       github: {
         repoOwner: asString(github.repo_owner, "github.repo_owner"),
         repoName: asString(github.repo_name, "github.repo_name"),
-        targetRepoPath: asString(github.target_repo_path, "github.target_repo_path")
+        targetRepoPath: asString(github.local_repo_path, "github.local_repo_path")
       },
       labels: {
         queue: asString(labels.queue_label, "labels.queue_label"),

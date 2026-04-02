@@ -8,7 +8,7 @@ const sampleConfig = `
 github:
   repo_owner: "acme"
   repo_name: "widget"
-  target_repo_path: "/repos/widget"
+  local_repo_path: "/repos/widget"
 labels:
   queue_label: "agent-queue"
   processing_label: "agent-processing"
