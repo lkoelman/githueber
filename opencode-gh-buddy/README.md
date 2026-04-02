@@ -6,7 +6,7 @@ TypeScript/Bun daemon package that bridges GitHub issue state to OpenCode agents
 
 - Bun installed
 - GitHub CLI authenticated with `gh auth login`
-- A reachable ACP-compatible OpenCode endpoint
+- A running OpenCode server started with `opencode acp`
 - A local repository checkout agents can work in
 - `GITHUB_TOKEN` available to the daemon
 
@@ -40,12 +40,20 @@ Edit these values before running:
 - `github.local_repo_path`
 - `acp.endpoint`
 
+Start the OpenCode server in another terminal:
+
+```bash
+opencode acp --port 9000
+```
+
 Export the daemon environment:
 
 ```bash
 export GITHUB_TOKEN=your_token_here
 export GH_BUDDY_CONFIG=/path/to/gh-buddy-config.yaml
 ```
+
+If `GITHUB_TOKEN` is unset or cannot access the configured repository, the daemon falls back to `gh auth token`.
 
 ## Usage
 

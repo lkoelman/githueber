@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { EventEmitter } from "node:events";
 import type { GitHubComment, GitHubIssue, GitHubPollerLike } from "../models/types.ts";
 
@@ -29,6 +30,9 @@ interface OctokitLike {
   };
 }
 
+type RepositoryAccessValidator = (token: string, owner: string, repo: string) => Promise<boolean>;
+type FallbackTokenReader = () => string | null;
+
 export async function createOctokit(token: string): Promise<OctokitLike> {
   const mod = await import("@octokit/rest");
   const OctokitCtor = (mod as { Octokit?: new (config: { auth: string }) => OctokitLike }).Octokit;
@@ -36,6 +40,88 @@ export async function createOctokit(token: string): Promise<OctokitLike> {
     throw new Error("Octokit export not available");
   }
   return new OctokitCtor({ auth: token });
+}
+
+/**
+ * Checks whether a specific token can read the configured repository.
+ *
+ * GitHub returns `404 Not Found` for private repositories that exist but are
+ * inaccessible to the token, so that status is treated as an access failure
+ * rather than a signal that the repository name is wrong.
+ */
+export async function canAccessRepository(
+  token: string,
+  owner: string,
+  repo: string,
+  fetchImpl: typeof fetch = fetch
+): Promise<boolean> {
+  const response = await fetchImpl(`https://api.github.com/repos/${owner}/${repo}`, {
+    headers: {
+      accept: "application/vnd.github+json",
+      authorization: `Bearer ${token}`,
+      "user-agent": "opencode-gh-buddy"
+    }
+  });
+
+  if (response.ok) {
+    return true;
+  }
+
+  if (response.status === 401 || response.status === 403 || response.status === 404) {
+    return false;
+  }
+
+  throw new Error(`GitHub repository access check failed: ${response.status} ${response.statusText}`);
+}
+
+/**
+ * Reads the active credential managed by `gh auth`.
+ *
+ * The child process explicitly removes `GITHUB_TOKEN` from its environment so
+ * `gh auth token` returns the stored CLI credential rather than echoing back an
+ * unusable process-level override.
+ */
+export function readGhAuthToken(): string | null {
+  try {
+    const env = { ...process.env };
+    delete env.GITHUB_TOKEN;
+
+    const token = execFileSync("gh", ["auth", "token"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      env
+    }).trim();
+
+    return token || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Selects a GitHub token that can access the target repository.
+ *
+ * The daemon prefers the explicit `GITHUB_TOKEN` when it works, but falls back
+ * to the credential managed by GitHub CLI so local development still works when
+ * the environment token has narrower permissions than the logged-in account.
+ */
+export async function resolveGitHubToken(
+  owner: string,
+  repo: string,
+  envToken: string | undefined,
+  validateAccess: RepositoryAccessValidator = canAccessRepository,
+  readFallbackToken: FallbackTokenReader = readGhAuthToken
+): Promise<string> {
+  if (envToken && await validateAccess(envToken, owner, repo)) {
+    return envToken;
+  }
+
+  const fallbackToken = readFallbackToken();
+  if (fallbackToken && fallbackToken !== envToken && await validateAccess(fallbackToken, owner, repo)) {
+    return fallbackToken;
+  }
+
+  throw new Error(`No GitHub token could access ${owner}/${repo}. Check GITHUB_TOKEN or run gh auth login.`);
 }
 
 function normalizeLabels(labels: OctokitIssue["labels"]): string[] {
