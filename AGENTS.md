@@ -79,7 +79,7 @@
 **Docs must stay in sync with code changes.**
 
 When modifying code, check if these docs need updates:
-- [README.md](README.md) - Overview, getting started, installation
+- README.md - Overview, getting started, installation
 - Module-specific README files (e.g., `<module>/**/README.md`)
 
 **When to update docs:**

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "bin": {
-    "gh-buddy": "./dist/cli.js"
+    "gbr": "./dist/cli.js"
   },
   "scripts": {
     "start": "bun run src/index.ts",
