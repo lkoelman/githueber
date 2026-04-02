@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import type { DaemonConfig } from "../models/types.ts";
+import type { DaemonConfig, LabelConfig, RepositoryConfig } from "../models/types.ts";
 import { parseSimpleYaml } from "../utils/simpleYaml.ts";
 
 type ParsedConfig = Record<string, any>;
@@ -32,6 +32,33 @@ function asObject(value: unknown, key: string): ParsedConfig {
   return value as ParsedConfig;
 }
 
+function normalizeLabels(raw: ParsedConfig, keyPrefix: string): LabelConfig {
+  return {
+    queue: asString(raw.queue_label, `${keyPrefix}.queue_label`),
+    processing: asString(raw.processing_label, `${keyPrefix}.processing_label`),
+    awaitPlan: asString(raw.await_plan_label, `${keyPrefix}.await_plan_label`),
+    completed: asString(raw.completed_label, `${keyPrefix}.completed_label`),
+    failed: asString(raw.failed_label, `${keyPrefix}.failed_label`),
+    revising: asString(raw.revising_label, `${keyPrefix}.revising_label`)
+  };
+}
+
+function normalizeRepository(key: string, raw: ParsedConfig): RepositoryConfig {
+  const labels = asObject(raw.labels, `repositories.${key}.labels`);
+  const agentMapping = asObject(raw.agent_mapping ?? {}, `repositories.${key}.agent_mapping`);
+
+  return {
+    key,
+    owner: asString(raw.owner, `repositories.${key}.owner`),
+    repo: asString(raw.repo, `repositories.${key}.repo`),
+    localRepoPath: asString(raw.local_repo_path, `repositories.${key}.local_repo_path`),
+    labels: normalizeLabels(labels, `repositories.${key}.labels`),
+    agentMapping: Object.fromEntries(
+      Object.entries(agentMapping).map(([label, agent]) => [label, asString(agent, `repositories.${key}.agent_mapping.${label}`)])
+    )
+  };
+}
+
 export class ConfigManager {
   private readonly config: DaemonConfig;
 
@@ -41,31 +68,16 @@ export class ConfigManager {
   }
 
   private normalize(raw: ParsedConfig): DaemonConfig {
-    const github = asObject(raw.github, "github");
-    const labels = asObject(raw.labels, "labels");
+    const repositories = asObject(raw.repositories, "repositories");
     const execution = asObject(raw.execution, "execution");
     const polling = asObject(raw.polling ?? {}, "polling");
     const acp = asObject(raw.acp, "acp");
     const ipc = asObject(raw.ipc ?? {}, "ipc");
     const logging = asObject(raw.logging ?? {}, "logging");
-    const agentMapping = asObject(raw.agent_mapping ?? {}, "agent_mapping");
 
     return {
-      github: {
-        repoOwner: asString(github.repo_owner, "github.repo_owner"),
-        repoName: asString(github.repo_name, "github.repo_name"),
-        targetRepoPath: asString(github.local_repo_path, "github.local_repo_path")
-      },
-      labels: {
-        queue: asString(labels.queue_label, "labels.queue_label"),
-        processing: asString(labels.processing_label, "labels.processing_label"),
-        awaitPlan: asString(labels.await_plan_label, "labels.await_plan_label"),
-        completed: asString(labels.completed_label, "labels.completed_label"),
-        failed: asString(labels.failed_label, "labels.failed_label"),
-        revising: asString(labels.revising_label, "labels.revising_label")
-      },
-      agentMapping: Object.fromEntries(
-        Object.entries(agentMapping).map(([label, agent]) => [label, asString(agent, `agent_mapping.${label}`)])
+      repositories: Object.fromEntries(
+        Object.entries(repositories).map(([key, value]) => [key, normalizeRepository(key, asObject(value, `repositories.${key}`))])
       ),
       execution: {
         autoApprove: asBoolean(execution.auto_approve, "execution.auto_approve"),
@@ -110,45 +122,5 @@ export class ConfigManager {
       throw new Error(`Unsupported config section: ${section}`);
     }
     target[field] = value;
-  }
-
-  public getRepoOwner(): string {
-    return this.config.github.repoOwner;
-  }
-
-  public getRepoName(): string {
-    return this.config.github.repoName;
-  }
-
-  public getTargetRepoPath(): string {
-    return this.config.github.targetRepoPath;
-  }
-
-  public getPollingIntervalMs(): number {
-    return this.config.polling.intervalMs;
-  }
-
-  public getApprovalComment(): string {
-    return this.config.execution.approvalComment;
-  }
-
-  public getReviseComment(): string {
-    return this.config.execution.reviseComment;
-  }
-
-  public getSocketPath(): string {
-    return this.config.ipc.socketPath;
-  }
-
-  public getACPConfiguration(): DaemonConfig["acp"] {
-    return this.config.acp;
-  }
-
-  public getLabels(): DaemonConfig["labels"] {
-    return this.config.labels;
-  }
-
-  public getAgentRoutingRules(): Array<{ label: string; agent: string }> {
-    return Object.entries(this.config.agentMapping).map(([label, agent]) => ({ label, agent }));
   }
 }

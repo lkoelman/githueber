@@ -1,24 +1,38 @@
-# GitHub repository settings
-github:
-  repo_owner: "your-org"
-  repo_name: "your-repo"
-  local_repo_path: "/path/to/your/repo"
+# Repository definitions
+repositories:
+  frontend:
+    owner: "your-org"
+    repo: "frontend-repo"
+    local_repo_path: "/path/to/frontend-repo"
+    labels:
+      queue_label: "agent-queue"
+      processing_label: "agent-processing"
+      await_plan_label: "await-plan"
+      completed_label: "agent-completed"
+      failed_label: "agent-failed"
+      revising_label: "agent-revising"
+    agent_mapping:
+      "bug-fix": "github-worker-agent"
+      "feature-request": "github-worker-agent"
+      "epic": "github-orchestrator-agent"
+      "refactor": "github-orchestrator-agent"
 
-# Label-based state machine
-labels:
-  queue_label: "agent-queue"
-  processing_label: "agent-processing"
-  await_plan_label: "await-plan"
-  completed_label: "agent-completed"
-  failed_label: "agent-failed"
-  revising_label: "agent-revising"
-
-# Map issue labels to OpenCode agents
-agent_mapping:
-  "bug-fix": "github-worker-agent"
-  "feature-request": "github-worker-agent"
-  "epic": "github-orchestrator-agent"
-  "refactor": "github-orchestrator-agent"
+  backend:
+    owner: "your-org"
+    repo: "backend-repo"
+    local_repo_path: "/path/to/backend-repo"
+    labels:
+      queue_label: "agent-queue"
+      processing_label: "agent-processing"
+      await_plan_label: "await-plan"
+      completed_label: "agent-completed"
+      failed_label: "agent-failed"
+      revising_label: "agent-revising"
+    agent_mapping:
+      "bug-fix": "github-worker-agent"
+      "feature-request": "github-worker-agent"
+      "epic": "github-orchestrator-agent"
+      "refactor": "github-orchestrator-agent"
 
 execution:
   auto_approve: false

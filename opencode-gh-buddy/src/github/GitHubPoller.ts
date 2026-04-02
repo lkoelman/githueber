@@ -42,13 +42,6 @@ export async function createOctokit(token: string): Promise<OctokitLike> {
   return new OctokitCtor({ auth: token });
 }
 
-/**
- * Checks whether a specific token can read the configured repository.
- *
- * GitHub returns `404 Not Found` for private repositories that exist but are
- * inaccessible to the token, so that status is treated as an access failure
- * rather than a signal that the repository name is wrong.
- */
 export async function canAccessRepository(
   token: string,
   owner: string,
@@ -74,13 +67,6 @@ export async function canAccessRepository(
   throw new Error(`GitHub repository access check failed: ${response.status} ${response.statusText}`);
 }
 
-/**
- * Reads the active credential managed by `gh auth`.
- *
- * The child process explicitly removes `GITHUB_TOKEN` from its environment so
- * `gh auth token` returns the stored CLI credential rather than echoing back an
- * unusable process-level override.
- */
 export function readGhAuthToken(): string | null {
   try {
     const env = { ...process.env };
@@ -98,13 +84,6 @@ export function readGhAuthToken(): string | null {
   }
 }
 
-/**
- * Selects a GitHub token that can access the target repository.
- *
- * The daemon prefers the explicit `GITHUB_TOKEN` when it works, but falls back
- * to the credential managed by GitHub CLI so local development still works when
- * the environment token has narrower permissions than the logged-in account.
- */
 export async function resolveGitHubToken(
   owner: string,
   repo: string,
@@ -147,8 +126,10 @@ export class GitHubPoller extends EventEmitter implements GitHubPollerLike {
 
   constructor(
     private readonly octokit: OctokitLike,
+    private readonly repositoryKey: string,
     private readonly owner: string,
-    private readonly repo: string
+    private readonly repo: string,
+    private readonly localRepoPath: string
   ) {
     super();
   }
@@ -187,9 +168,13 @@ export class GitHubPoller extends EventEmitter implements GitHubPollerLike {
 
       this.lastEtag = response.headers.etag ?? null;
 
-      const issues = response.data
+      return response.data
         .filter((issue) => issue.pull_request === undefined)
         .map((issue) => ({
+          repositoryKey: this.repositoryKey,
+          repoOwner: this.owner,
+          repoName: this.repo,
+          localRepoPath: this.localRepoPath,
           id: issue.id,
           number: issue.number,
           title: issue.title,
@@ -199,8 +184,6 @@ export class GitHubPoller extends EventEmitter implements GitHubPollerLike {
           updatedAt: issue.updated_at,
           comments: []
         }));
-
-      return issues;
     } catch (error: any) {
       if (error?.status === 304) {
         return [];

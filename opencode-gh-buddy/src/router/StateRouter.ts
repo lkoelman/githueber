@@ -9,11 +9,13 @@ export class StateRouter {
     latestComment?: string | null,
     activeSession?: AgentSessionRecord
   ): RouteDecision {
-    const { labels, execution } = this.config;
-
-    if (issue.state !== "open") {
+    const repository = this.config.repositories[issue.repositoryKey];
+    if (!repository || issue.state !== "open") {
       return { action: "IGNORE" };
     }
+
+    const { labels } = repository;
+    const { execution } = this.config;
 
     if (issue.labels.includes(labels.awaitPlan) && activeSession) {
       if (latestComment?.startsWith(execution.approvalComment)) {
@@ -40,13 +42,13 @@ export class StateRouter {
     }
 
     const matchedAgent =
-      Object.entries(this.config.agentMapping).find(([label]) => issue.labels.includes(label))?.[1] ??
+      Object.entries(repository.agentMapping).find(([label]) => issue.labels.includes(label))?.[1] ??
       "github-worker-agent";
 
     return {
       action: "START_SESSION",
       agentName: matchedAgent,
-      promptContext: buildInitializationPrompt(issue, this.config, matchedAgent)
+      promptContext: buildInitializationPrompt(issue, matchedAgent)
     };
   }
 }

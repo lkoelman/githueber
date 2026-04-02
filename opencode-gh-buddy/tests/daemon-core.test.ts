@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { DaemonCore } from "../src/daemon.ts";
 import type {
   ACPManagerLike,
+  AgentSessionRecord,
   DaemonConfig,
   GitHubIssue,
   GitHubPollerLike,
@@ -10,20 +11,38 @@ import type {
 } from "../src/models/types.ts";
 
 const config: DaemonConfig = {
-  github: {
-    repoOwner: "acme",
-    repoName: "widget",
-    targetRepoPath: "/repos/widget"
+  repositories: {
+    frontend: {
+      key: "frontend",
+      owner: "acme",
+      repo: "frontend",
+      localRepoPath: "/repos/frontend",
+      labels: {
+        queue: "agent-queue",
+        processing: "agent-processing",
+        awaitPlan: "await-plan",
+        completed: "agent-completed",
+        failed: "agent-failed",
+        revising: "agent-revising"
+      },
+      agentMapping: {}
+    },
+    backend: {
+      key: "backend",
+      owner: "acme",
+      repo: "backend",
+      localRepoPath: "/repos/backend",
+      labels: {
+        queue: "agent-queue",
+        processing: "agent-processing",
+        awaitPlan: "await-plan",
+        completed: "agent-completed",
+        failed: "agent-failed",
+        revising: "agent-revising"
+      },
+      agentMapping: {}
+    }
   },
-  labels: {
-    queue: "agent-queue",
-    processing: "agent-processing",
-    awaitPlan: "await-plan",
-    completed: "agent-completed",
-    failed: "agent-failed",
-    revising: "agent-revising"
-  },
-  agentMapping: {},
   execution: {
     autoApprove: false,
     concurrency: 1,
@@ -46,15 +65,33 @@ const config: DaemonConfig = {
   }
 };
 
+function makeIssue(repositoryKey: "frontend" | "backend", issueNumber = 42): GitHubIssue {
+  const repoName = repositoryKey;
+  return {
+    repositoryKey,
+    repoOwner: "acme",
+    repoName,
+    localRepoPath: `/repos/${repoName}`,
+    id: issueNumber,
+    number: issueNumber,
+    title: "Test",
+    body: "Body",
+    labels: ["agent-queue"],
+    state: "open",
+    updatedAt: "2026-04-02T00:00:00Z",
+    comments: []
+  };
+}
+
 class PollerStub implements GitHubPollerLike {
   public latestComment = "";
   public updated: Array<{ issueNumber: number; add: string; remove?: string }> = [];
 
+  constructor(public readonly repositoryKey: string) {}
+
   start(): void {}
   stop(): void {}
   onIssuesUpdated(): void {}
-  onApprovalRequested(): void {}
-  onIssueCompleted(): void {}
   async pollNow(): Promise<GitHubIssue[]> {
     return [];
   }
@@ -67,22 +104,25 @@ class PollerStub implements GitHubPollerLike {
 }
 
 class ACPStub implements ACPManagerLike {
-  public started: Array<{ issueNumber: number; agentName: string; prompt: string }> = [];
+  public started: Array<{ repositoryKey: string; issueNumber: number; agentName: string; prompt: string }> = [];
   public sent: Array<{ sessionId: string; message: string }> = [];
-  public sessions = new Map<number, { sessionId: string; issueNumber: number; status: "RUNNING" | "PAUSED_AWAITING_APPROVAL" | "COMPLETED"; agentName: string }>();
+  public sessions = new Map<string, AgentSessionRecord>();
 
   async initialize(): Promise<void> {}
-  getSessionForIssue(issueNumber: number) {
-    return this.sessions.get(issueNumber);
+  getSessionForIssue(repositoryKey: string, issueNumber: number) {
+    return this.sessions.get(`${repositoryKey}#${issueNumber}`);
   }
   listSessions() {
     return Array.from(this.sessions.values());
   }
-  async startNewSession(issueNumber: number, agentName: string, prompt: string): Promise<void> {
-    this.started.push({ issueNumber, agentName, prompt });
-    this.sessions.set(issueNumber, {
-      sessionId: "session-42",
-      issueNumber,
+  async startNewSession(issue: GitHubIssue, agentName: string, prompt: string): Promise<void> {
+    this.started.push({ repositoryKey: issue.repositoryKey, issueNumber: issue.number, agentName, prompt });
+    this.sessions.set(`${issue.repositoryKey}#${issue.number}`, {
+      sessionId: `${issue.repositoryKey}-session-${issue.number}`,
+      repositoryKey: issue.repositoryKey,
+      repoOwner: issue.repoOwner,
+      repoName: issue.repoName,
+      issueNumber: issue.number,
       status: "RUNNING",
       agentName
     });
@@ -96,18 +136,19 @@ class ACPStub implements ACPManagerLike {
 }
 
 class RouterStub implements RouterLike {
-  constructor(private decision: RouteDecision) {}
+  constructor(private readonly decision: RouteDecision) {}
   evaluateIssueState(): RouteDecision {
     return this.decision;
   }
 }
 
 describe("DaemonCore", () => {
-  test("starts a new session and updates queue label", async () => {
-    const poller = new PollerStub();
+  test("starts a new session and updates labels in the matching repository", async () => {
+    const frontendPoller = new PollerStub("frontend");
+    const backendPoller = new PollerStub("backend");
     const acp = new ACPStub();
     const daemon = new DaemonCore(
-      poller,
+      { frontend: frontendPoller, backend: backendPoller },
       new RouterStub({
         action: "START_SESSION",
         agentName: "github-worker-agent",
@@ -117,53 +158,43 @@ describe("DaemonCore", () => {
       config
     );
 
-    await daemon.processIssue({
-      id: 1,
-      number: 42,
-      title: "Test",
-      body: "Body",
-      labels: ["agent-queue"],
-      state: "open",
-      updatedAt: "2026-04-01T00:00:00Z",
-      comments: []
-    });
+    await daemon.processIssue(makeIssue("frontend", 42));
 
     expect(acp.started).toEqual([
-      { issueNumber: 42, agentName: "github-worker-agent", prompt: "start prompt" }
+      {
+        repositoryKey: "frontend",
+        issueNumber: 42,
+        agentName: "github-worker-agent",
+        prompt: "start prompt"
+      }
     ]);
-    expect(poller.updated).toEqual([
+    expect(frontendPoller.updated).toEqual([
       { issueNumber: 42, add: "agent-processing", remove: "agent-queue" }
     ]);
+    expect(backendPoller.updated).toEqual([]);
   });
 
-  test("resumes an approved session and restores processing label", async () => {
-    const poller = new PollerStub();
+  test("keeps same issue number in a different repository isolated", async () => {
+    const frontendPoller = new PollerStub("frontend");
+    const backendPoller = new PollerStub("backend");
     const acp = new ACPStub();
     const daemon = new DaemonCore(
-      poller,
+      { frontend: frontendPoller, backend: backendPoller },
       new RouterStub({
-        action: "RESUME_APPROVED",
-        acpSessionId: "session-42",
-        promptContext: "approved"
+        action: "START_SESSION",
+        agentName: "github-worker-agent",
+        promptContext: "start prompt"
       }),
       acp,
       config
     );
 
-    await daemon.processIssue({
-      id: 1,
-      number: 42,
-      title: "Test",
-      body: "Body",
-      labels: ["await-plan"],
-      state: "open",
-      updatedAt: "2026-04-01T00:00:00Z",
-      comments: []
-    });
+    await daemon.processIssue(makeIssue("backend", 42));
 
-    expect(acp.sent).toEqual([{ sessionId: "session-42", message: "approved" }]);
-    expect(poller.updated).toEqual([
-      { issueNumber: 42, add: "agent-processing", remove: "await-plan" }
+    expect(acp.started[0]).toMatchObject({ repositoryKey: "backend", issueNumber: 42 });
+    expect(frontendPoller.updated).toEqual([]);
+    expect(backendPoller.updated).toEqual([
+      { issueNumber: 42, add: "agent-processing", remove: "agent-queue" }
     ]);
   });
 });

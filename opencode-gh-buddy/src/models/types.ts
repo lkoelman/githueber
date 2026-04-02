@@ -12,6 +12,21 @@ export type TaskAction =
   | "RESUME_REVISED"
   | "IGNORE";
 
+export interface RepositoryIdentity {
+  repositoryKey: string;
+  repoOwner: string;
+  repoName: string;
+}
+
+export interface RepositoryConfig {
+  key: string;
+  owner: string;
+  repo: string;
+  localRepoPath: string;
+  labels: LabelConfig;
+  agentMapping: Record<string, string>;
+}
+
 export interface GitHubComment {
   id: number;
   body: string;
@@ -20,7 +35,8 @@ export interface GitHubComment {
   updatedAt: string;
 }
 
-export interface GitHubIssue {
+export interface GitHubIssue extends RepositoryIdentity {
+  localRepoPath: string;
   id: number;
   number: number;
   title: string;
@@ -38,7 +54,7 @@ export interface RouteDecision {
   acpSessionId?: string;
 }
 
-export interface AgentSessionRecord {
+export interface AgentSessionRecord extends RepositoryIdentity {
   sessionId: string;
   issueNumber: number;
   status: SessionStatus;
@@ -52,12 +68,6 @@ export interface LabelConfig {
   completed: string;
   failed: string;
   revising: string;
-}
-
-export interface GitHubConfig {
-  repoOwner: string;
-  repoName: string;
-  targetRepoPath: string;
 }
 
 export interface ExecutionConfig {
@@ -86,9 +96,7 @@ export interface LoggingConfig {
 }
 
 export interface DaemonConfig {
-  github: GitHubConfig;
-  labels: LabelConfig;
-  agentMapping: Record<string, string>;
+  repositories: Record<string, RepositoryConfig>;
   execution: ExecutionConfig;
   polling: PollingConfig;
   acp: ACPConfig;
@@ -103,15 +111,13 @@ export interface GitHubPollerLike {
   getLatestComment(issueNumber: number): Promise<string | null>;
   updateIssueLabel(issueNumber: number, addLabel: string, removeLabel?: string): Promise<void>;
   onIssuesUpdated(callback: (issues: GitHubIssue[]) => Promise<void> | void): void;
-  onApprovalRequested?(callback: (issueNumber: number) => Promise<void> | void): void;
-  onIssueCompleted?(callback: (issueNumber: number) => Promise<void> | void): void;
 }
 
 export interface ACPManagerLike {
   initialize(): Promise<void>;
-  getSessionForIssue(issueNumber: number): AgentSessionRecord | undefined;
+  getSessionForIssue(repositoryKey: string, issueNumber: number): AgentSessionRecord | undefined;
   listSessions(): AgentSessionRecord[];
-  startNewSession(issueNumber: number, agentName: string, prompt: string): Promise<void>;
+  startNewSession(issue: GitHubIssue, agentName: string, prompt: string): Promise<void>;
   sendMessageToSession(sessionId: string, message: string): Promise<void>;
   stopSession(sessionId: string): Promise<void>;
   onSessionPaused(callback: (sessionId: string) => Promise<void> | void): void;

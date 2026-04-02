@@ -7,40 +7,41 @@ TypeScript/Bun daemon package that bridges GitHub issue state to OpenCode agents
 - Bun installed
 - GitHub CLI authenticated with `gh auth login`
 - A running OpenCode server started with `opencode acp`
-- A local repository checkout agents can work in
-- `GITHUB_TOKEN` available to the daemon
+- One local checkout per configured repository
+- `GITHUB_TOKEN` available to the daemon, or `gh auth token` available as fallback
 
 ## What it provides
 
-- YAML-style config loading for the daemon control plane
-- Deterministic issue routing and prompt generation
+- Multi-repository config loading for one daemon instance
+- Repository-scoped issue routing and prompt generation
 - ACP session management and GitHub polling wrappers
 - Unix domain socket IPC server and `gh-buddy` CLI
 - Example config and systemd unit scaffold
 
 ## Installation
 
-Install dependencies:
-
 ```bash
 cd agents-config/opencode-gh-buddy
 bun install
-```
-
-Create a config file from the example:
-
-```bash
 cp config/gh-buddy-config.example.yaml config/gh-buddy-config.yaml
 ```
 
-Edit these values before running:
+Edit `config/gh-buddy-config.yaml` and define every repository under `repositories:`. Each repository entry needs:
 
-- `github.repo_owner`
-- `github.repo_name`
-- `github.local_repo_path`
+- `owner`
+- `repo`
+- `local_repo_path`
+- `labels.*`
+- `agent_mapping`
+
+Set the shared daemon config:
+
+- `execution.*`
+- `polling.interval_ms`
 - `acp.endpoint`
+- `ipc.socket_path`
 
-Start the OpenCode server in another terminal:
+Start the OpenCode ACP server in another terminal:
 
 ```bash
 opencode acp --port 9000
@@ -53,11 +54,11 @@ export GITHUB_TOKEN=your_token_here
 export GH_BUDDY_CONFIG=/path/to/gh-buddy-config.yaml
 ```
 
-If `GITHUB_TOKEN` is unset or cannot access the configured repository, the daemon falls back to `gh auth token`.
+If `GITHUB_TOKEN` is unset or cannot access a configured repository, the daemon falls back to `gh auth token`.
 
 ## Usage
 
-Run the daemon directly in development:
+Run the daemon in development:
 
 ```bash
 cd agents-config/opencode-gh-buddy
@@ -68,6 +69,12 @@ Build the daemon and CLI:
 
 ```bash
 bun run build:all
+```
+
+Install the CLI globally:
+
+```bash
+bun link
 ```
 
 Run the bundled daemon:
@@ -97,9 +104,9 @@ bun run dist/cli.js sessions
 
 Available commands:
 
-- `sessions`: list active ACP sessions tracked by the daemon
-- `poll`: trigger an immediate GitHub poll cycle
-- `stop <session-id>`: stop a tracked ACP session
+- `sessions`: list active ACP sessions, including repository key and owner/repo identity
+- `poll`: trigger an immediate GitHub poll cycle across all configured repositories
+- `stop <session-id>`: stop a tracked ACP session by session id
 - `config <key> <value>`: change an in-memory config value in the running daemon
 
 If the daemon uses a non-default socket path:
@@ -107,6 +114,28 @@ If the daemon uses a non-default socket path:
 ```bash
 export GH_BUDDY_SOCKET_PATH=/custom/path/opencode-gh-buddy.sock
 ```
+
+## Multi-Repository Config Shape
+
+```yaml
+repositories:
+  frontend:
+    owner: your-org
+    repo: frontend-repo
+    local_repo_path: /repos/frontend-repo
+    labels:
+      queue_label: agent-queue
+      processing_label: agent-processing
+      await_plan_label: await-plan
+      completed_label: agent-completed
+      failed_label: agent-failed
+      revising_label: agent-revising
+    agent_mapping:
+      bug-fix: github-worker-agent
+      epic: github-orchestrator-agent
+```
+
+Each repository is polled independently. Active sessions are tracked by repository key plus issue number, so `frontend#42` and `backend#42` remain distinct work items.
 
 ## systemd
 

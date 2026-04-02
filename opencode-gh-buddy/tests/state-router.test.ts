@@ -3,22 +3,42 @@ import { StateRouter } from "../src/router/StateRouter.ts";
 import type { AgentSessionRecord, DaemonConfig, GitHubIssue } from "../src/models/types.ts";
 
 const config: DaemonConfig = {
-  github: {
-    repoOwner: "acme",
-    repoName: "widget",
-    targetRepoPath: "/repos/widget"
-  },
-  labels: {
-    queue: "agent-queue",
-    processing: "agent-processing",
-    awaitPlan: "await-plan",
-    completed: "agent-completed",
-    failed: "agent-failed",
-    revising: "agent-revising"
-  },
-  agentMapping: {
-    "bug-fix": "github-worker-agent",
-    epic: "github-orchestrator-agent"
+  repositories: {
+    frontend: {
+      key: "frontend",
+      owner: "acme",
+      repo: "frontend",
+      localRepoPath: "/repos/frontend",
+      labels: {
+        queue: "agent-queue",
+        processing: "agent-processing",
+        awaitPlan: "await-plan",
+        completed: "agent-completed",
+        failed: "agent-failed",
+        revising: "agent-revising"
+      },
+      agentMapping: {
+        "bug-fix": "github-worker-agent",
+        epic: "github-orchestrator-agent"
+      }
+    },
+    backend: {
+      key: "backend",
+      owner: "acme",
+      repo: "backend",
+      localRepoPath: "/repos/backend",
+      labels: {
+        queue: "agent-queue",
+        processing: "agent-processing",
+        awaitPlan: "await-plan",
+        completed: "agent-completed",
+        failed: "agent-failed",
+        revising: "agent-revising"
+      },
+      agentMapping: {
+        "feature-request": "github-worker-agent"
+      }
+    }
   },
   execution: {
     autoApprove: false,
@@ -43,28 +63,33 @@ const config: DaemonConfig = {
 };
 
 const issue: GitHubIssue = {
+  repositoryKey: "frontend",
+  repoOwner: "acme",
+  repoName: "frontend",
+  localRepoPath: "/repos/frontend",
   id: 1,
   number: 42,
   title: "Fix race condition",
   body: "Please fix it",
   labels: ["agent-queue", "bug-fix"],
   state: "open",
-  updatedAt: "2026-04-01T00:00:00Z",
+  updatedAt: "2026-04-02T00:00:00Z",
   comments: []
 };
 
 describe("StateRouter", () => {
-  test("starts a worker session for queued bug-fix issues", () => {
+  test("starts a worker session for queued repository-scoped issues", () => {
     const router = new StateRouter(config);
     const decision = router.evaluateIssueState(issue);
 
     expect(decision.action).toBe("START_SESSION");
     expect(decision.agentName).toBe("github-worker-agent");
-    expect(decision.promptContext).toContain("TARGET ISSUE: #42");
-    expect(decision.promptContext).toContain("REPOSITORY PATH: /repos/widget");
+    expect(decision.promptContext).toContain("REPOSITORY KEY: frontend");
+    expect(decision.promptContext).toContain("REPOSITORY: acme/frontend");
+    expect(decision.promptContext).toContain("REPOSITORY PATH: /repos/frontend");
   });
 
-  test("routes epic issues to the orchestrator agent", () => {
+  test("routes epic issues to the orchestrator agent within the same repository", () => {
     const router = new StateRouter(config);
     const decision = router.evaluateIssueState({
       ...issue,
@@ -75,10 +100,13 @@ describe("StateRouter", () => {
     expect(decision.agentName).toBe("github-orchestrator-agent");
   });
 
-  test("resumes paused session on approve comment", () => {
+  test("resumes paused session on approve comment for the matching repository session", () => {
     const router = new StateRouter(config);
     const session: AgentSessionRecord = {
       sessionId: "session-1",
+      repositoryKey: "frontend",
+      repoOwner: "acme",
+      repoName: "frontend",
       issueNumber: 42,
       status: "PAUSED_AWAITING_APPROVAL",
       agentName: "github-worker-agent"
@@ -99,25 +127,20 @@ describe("StateRouter", () => {
     });
   });
 
-  test("requests plan revision when revise comment is posted", () => {
+  test("keeps same issue number in another repository isolated", () => {
     const router = new StateRouter(config);
-    const session: AgentSessionRecord = {
-      sessionId: "session-2",
-      issueNumber: 42,
-      status: "PAUSED_AWAITING_APPROVAL",
-      agentName: "github-worker-agent"
-    };
-    const decision = router.evaluateIssueState(
-      {
-        ...issue,
-        labels: ["await-plan"]
-      },
-      "/revise: use a lock file",
-      session
-    );
+    const decision = router.evaluateIssueState({
+      ...issue,
+      repositoryKey: "backend",
+      repoOwner: "acme",
+      repoName: "backend",
+      localRepoPath: "/repos/backend",
+      labels: ["agent-queue", "feature-request"]
+    });
 
-    expect(decision.action).toBe("RESUME_REVISED");
-    expect(decision.acpSessionId).toBe("session-2");
-    expect(decision.promptContext).toContain("use a lock file");
+    expect(decision.action).toBe("START_SESSION");
+    expect(decision.agentName).toBe("github-worker-agent");
+    expect(decision.promptContext).toContain("REPOSITORY KEY: backend");
+    expect(decision.promptContext).not.toContain("acme/frontend");
   });
 });

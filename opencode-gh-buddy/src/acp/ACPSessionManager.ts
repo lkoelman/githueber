@@ -1,4 +1,4 @@
-import type { ACPManagerLike, AgentSessionRecord, SessionStatus } from "../models/types.ts";
+import type { ACPManagerLike, AgentSessionRecord, GitHubIssue, SessionStatus } from "../models/types.ts";
 
 interface ACPCreateSessionRequest {
   agentDefinition: string;
@@ -19,39 +19,24 @@ interface ACPClientLike {
 
 type FetchLike = typeof fetch;
 
-/**
- * Minimal ACP client adapter for the HTTP API exposed by `opencode acp`.
- *
- * This preserves the daemon's existing `ACPClientLike` contract even though the
- * installed ACP SDK no longer exports the older high-level `Client` wrapper the
- * codebase was originally written against.
- */
 class OpenCodeHTTPClient implements ACPClientLike {
   constructor(
     private readonly endpoint: string,
     private readonly fetchImpl: FetchLike
   ) {}
 
-  /** Resolves a relative API path against the configured OpenCode server URL. */
   private buildUrl(path: string): string {
     return new URL(path, this.endpoint.endsWith("/") ? this.endpoint : `${this.endpoint}/`).toString();
   }
 
-  /** Sends an HTTP request to OpenCode and raises a typed error on non-2xx responses. */
-  private async request(
-    path: string,
-    init?: RequestInit
-  ): Promise<Response> {
+  private async request(path: string, init?: RequestInit): Promise<Response> {
     const response = await this.fetchImpl(this.buildUrl(path), init);
-
     if (!response.ok) {
       throw new Error(`OpenCode server request failed: ${response.status} ${response.statusText}`);
     }
-
     return response;
   }
 
-  /** Verifies that the target OpenCode server is reachable before the daemon starts polling. */
   async connect(): Promise<void> {
     const response = await this.request("./global/health");
     const health = await response.json() as { healthy?: boolean };
@@ -61,7 +46,6 @@ class OpenCodeHTTPClient implements ACPClientLike {
     }
   }
 
-  /** Creates a new OpenCode session and immediately sends the daemon's initialization prompt. */
   async createSession(request: ACPCreateSessionRequest): Promise<{ id: string }> {
     const sessionResponse = await this.request("./session", {
       method: "POST",
@@ -72,11 +56,9 @@ class OpenCodeHTTPClient implements ACPClientLike {
     const session = await sessionResponse.json() as { id: string };
 
     await this.sendPrompt(session.id, request.initialPrompt, request.agentDefinition);
-
     return session;
   }
 
-  /** Dispatches a prompt turn to an existing OpenCode session, optionally pinning the agent mode. */
   private async sendPrompt(sessionId: string, text: string, agent?: string): Promise<void> {
     const payload: Record<string, unknown> = {
       parts: [{ type: "text", text }]
@@ -93,12 +75,10 @@ class OpenCodeHTTPClient implements ACPClientLike {
     });
   }
 
-  /** Resumes an existing session by sending another text prompt turn. */
   async sendMessage(sessionId: string, payload: ACPMessagePayload): Promise<void> {
     await this.sendPrompt(sessionId, payload.text);
   }
 
-  /** Requests that OpenCode abort the active turn for a tracked session. */
   async stopSession(sessionId: string): Promise<void> {
     await this.request(`./session/${sessionId}/abort`, {
       method: "POST"
@@ -106,13 +86,6 @@ class OpenCodeHTTPClient implements ACPClientLike {
   }
 }
 
-/**
- * Creates the ACP client used by the daemon.
- *
- * The preferred path is the SDK's legacy `Client` export when available. When
- * the installed SDK only exposes low-level protocol primitives, the daemon
- * falls back to the HTTP API served by `opencode acp`.
- */
 export async function createACPClient(
   endpoint: string,
   fetchImpl: FetchLike = fetch
@@ -131,8 +104,12 @@ export async function createACPClient(
   throw new Error("ACP SDK Client export not available and endpoint is not an OpenCode HTTP server URL");
 }
 
+function issueKey(repositoryKey: string, issueNumber: number): string {
+  return `${repositoryKey}#${issueNumber}`;
+}
+
 export class ACPSessionManager implements ACPManagerLike {
-  private readonly activeSessions = new Map<number, AgentSessionRecord>();
+  private readonly activeSessions = new Map<string, AgentSessionRecord>();
   private readonly pauseListeners = new Set<(sessionId: string) => Promise<void> | void>();
   private readonly completionListeners = new Set<(sessionId: string) => Promise<void> | void>();
 
@@ -157,9 +134,9 @@ export class ACPSessionManager implements ACPManagerLike {
   }
 
   private updateStatus(sessionId: string, status: SessionStatus): void {
-    for (const [issueNumber, record] of this.activeSessions.entries()) {
+    for (const [key, record] of this.activeSessions.entries()) {
       if (record.sessionId === sessionId) {
-        this.activeSessions.set(issueNumber, { ...record, status });
+        this.activeSessions.set(key, { ...record, status });
       }
     }
   }
@@ -168,18 +145,23 @@ export class ACPSessionManager implements ACPManagerLike {
     await this.acpClient.connect();
   }
 
-  getSessionForIssue(issueNumber: number): AgentSessionRecord | undefined {
-    return this.activeSessions.get(issueNumber);
+  getSessionForIssue(repositoryKey: string, issueNumber: number): AgentSessionRecord | undefined {
+    return this.activeSessions.get(issueKey(repositoryKey, issueNumber));
   }
 
   listSessions(): AgentSessionRecord[] {
     return Array.from(this.activeSessions.values());
   }
 
-  async startNewSession(issueNumber: number, agentName: string, prompt: string): Promise<void> {
-    this.activeSessions.set(issueNumber, {
-      sessionId: `initializing-${issueNumber}`,
-      issueNumber,
+  async startNewSession(issue: GitHubIssue, agentName: string, prompt: string): Promise<void> {
+    const key = issueKey(issue.repositoryKey, issue.number);
+
+    this.activeSessions.set(key, {
+      sessionId: `initializing-${issue.repositoryKey}-${issue.number}`,
+      repositoryKey: issue.repositoryKey,
+      repoOwner: issue.repoOwner,
+      repoName: issue.repoName,
+      issueNumber: issue.number,
       status: "INITIALIZING",
       agentName
     });
@@ -189,9 +171,12 @@ export class ACPSessionManager implements ACPManagerLike {
       initialPrompt: prompt
     });
 
-    this.activeSessions.set(issueNumber, {
+    this.activeSessions.set(key, {
       sessionId: session.id,
-      issueNumber,
+      repositoryKey: issue.repositoryKey,
+      repoOwner: issue.repoOwner,
+      repoName: issue.repoName,
+      issueNumber: issue.number,
       status: "RUNNING",
       agentName
     });
@@ -206,9 +191,9 @@ export class ACPSessionManager implements ACPManagerLike {
       await this.acpClient.stopSession(sessionId);
     }
 
-    for (const [issueNumber, record] of this.activeSessions.entries()) {
+    for (const [key, record] of this.activeSessions.entries()) {
       if (record.sessionId === sessionId) {
-        this.activeSessions.delete(issueNumber);
+        this.activeSessions.delete(key);
       }
     }
   }
