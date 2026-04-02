@@ -185,7 +185,7 @@ Supported commands are:
 
 - `LIST_SESSIONS`
 - `STOP_SESSION`
-- `TRIGGER_POLL`
+- `TRIGGER_POLL` returns a repository-scoped summary of fetched issues and any issues dispatched to an agent session
 - `SET_CONFIG`
 
 ### 9. Command-Line Tool
@@ -198,7 +198,7 @@ Supported commands are:
   - `parseCliArgs(argv) => IPCRequest`
   - CLI commands: `sessions`, `poll`, `stop <sessionId>`, `config <key> <value>`
 
-The CLI does not implement daemon behavior itself. It translates shell arguments into an `IPCRequest`, opens a Unix socket connection to the daemon, sends one JSON message, and prints the JSON response or status message.
+The CLI does not implement daemon behavior itself. It translates shell arguments into an `IPCRequest`, opens a Unix socket connection to the daemon, sends one JSON message, and prints the JSON response or status message. For `poll`, the CLI renders a readable repository-by-repository summary of fetched issues and dispatches.
 
 ## Component Interaction
 
@@ -230,7 +230,7 @@ The CLI-to-daemon path is local and synchronous:
 5. [handler.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/ipc/handler.ts) dispatches the request to the `DaemonCore`-backed target:
    - `LIST_SESSIONS` reads the active session table
    - `STOP_SESSION` aborts a session by session id
-   - `TRIGGER_POLL` forces an immediate poll cycle across repositories
+   - `TRIGGER_POLL` forces an immediate poll cycle across repositories and returns the fetched/dispatched issue summary
    - `SET_CONFIG` changes an in-memory config value
 6. The server writes a JSON response back to the CLI.
 7. The CLI prints the result for the operator.

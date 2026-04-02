@@ -86,6 +86,7 @@ function makeIssue(repositoryKey: "frontend" | "backend", issueNumber = 42): Git
 class PollerStub implements GitHubPollerLike {
   public latestComment = "";
   public updated: Array<{ issueNumber: number; add: string; remove?: string }> = [];
+  public issuesToReturn: GitHubIssue[] = [];
 
   constructor(public readonly repositoryKey: string) {}
 
@@ -93,7 +94,7 @@ class PollerStub implements GitHubPollerLike {
   stop(): void {}
   onIssuesUpdated(): void {}
   async pollNow(): Promise<GitHubIssue[]> {
-    return [];
+    return this.issuesToReturn;
   }
   async getLatestComment(): Promise<string | null> {
     return this.latestComment;
@@ -196,5 +197,53 @@ describe("DaemonCore", () => {
     expect(backendPoller.updated).toEqual([
       { issueNumber: 42, add: "agent-processing", remove: "agent-queue" }
     ]);
+  });
+
+  test("returns a manual poll summary with fetched and dispatched issues", async () => {
+    const frontendPoller = new PollerStub("frontend");
+    const backendPoller = new PollerStub("backend");
+    frontendPoller.issuesToReturn = [makeIssue("frontend", 42)];
+    backendPoller.issuesToReturn = [makeIssue("backend", 99)];
+
+    const acp = new ACPStub();
+    const daemon = new DaemonCore(
+      { frontend: frontendPoller, backend: backendPoller },
+      new RouterStub({
+        action: "START_SESSION",
+        agentName: "github-worker-agent",
+        promptContext: "start prompt"
+      }),
+      acp,
+      config
+    );
+
+    await expect(daemon.triggerManualPoll()).resolves.toEqual({
+      repositories: [
+        {
+          repositoryKey: "frontend",
+          fetchedIssues: [{ issueNumber: 42, title: "Test" }],
+          dispatchedIssues: [
+            {
+              issueNumber: 42,
+              title: "Test",
+              action: "START_SESSION",
+              agentName: "github-worker-agent"
+            }
+          ]
+        },
+        {
+          repositoryKey: "backend",
+          fetchedIssues: [{ issueNumber: 99, title: "Test" }],
+          dispatchedIssues: [
+            {
+              issueNumber: 99,
+              title: "Test",
+              action: "START_SESSION",
+              agentName: "github-worker-agent"
+            }
+          ]
+        }
+      ]
+    });
   });
 });

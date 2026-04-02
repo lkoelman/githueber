@@ -61,6 +61,26 @@ export interface AgentSessionRecord extends RepositoryIdentity {
   agentName: string;
 }
 
+export interface ManualPollIssueSummary {
+  issueNumber: number;
+  title: string;
+}
+
+export interface ManualPollDispatchSummary extends ManualPollIssueSummary {
+  action: Exclude<TaskAction, "IGNORE">;
+  agentName?: string;
+}
+
+export interface ManualPollRepositorySummary {
+  repositoryKey: string;
+  fetchedIssues: ManualPollIssueSummary[];
+  dispatchedIssues: ManualPollDispatchSummary[];
+}
+
+export interface ManualPollSummary {
+  repositories: ManualPollRepositorySummary[];
+}
+
 export interface LabelConfig {
   queue: string;
   processing: string;

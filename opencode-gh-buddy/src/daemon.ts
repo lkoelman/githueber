@@ -4,6 +4,8 @@ import type {
   DaemonConfig,
   GitHubIssue,
   GitHubPollerLike,
+  ManualPollDispatchSummary,
+  ManualPollSummary,
   RouterLike
 } from "./models/types.ts";
 import { logger } from "./utils/logger.ts";
@@ -64,7 +66,7 @@ export class DaemonCore {
     return this.acpManager.listSessions().find((session) => session.sessionId === sessionId);
   }
 
-  public async processIssue(issue: GitHubIssue): Promise<void> {
+  private async processIssueInternal(issue: GitHubIssue): Promise<ManualPollDispatchSummary | null> {
     const activeSession = this.acpManager.getSessionForIssue(issue.repositoryKey, issue.number);
     const labels = this.config.repositories[issue.repositoryKey]?.labels;
     if (!labels) {
@@ -86,25 +88,42 @@ export class DaemonCore {
       case "START_SESSION":
         await this.acpManager.startNewSession(issue, decision.agentName!, decision.promptContext!);
         await poller.updateIssueLabel(issue.number, labels.processing, labels.queue);
-        return;
+        return {
+          issueNumber: issue.number,
+          title: issue.title,
+          action: decision.action,
+          agentName: decision.agentName
+        };
       case "RESUME_APPROVED":
         await this.acpManager.sendMessageToSession(
           decision.acpSessionId!,
           decision.promptContext ?? "User approved. Proceed."
         );
         await poller.updateIssueLabel(issue.number, labels.processing, labels.awaitPlan);
-        return;
+        return {
+          issueNumber: issue.number,
+          title: issue.title,
+          action: decision.action
+        };
       case "RESUME_REVISED":
         await this.acpManager.sendMessageToSession(
           decision.acpSessionId!,
           decision.promptContext ?? "Please revise the plan."
         );
         await poller.updateIssueLabel(issue.number, labels.revising, labels.awaitPlan);
-        return;
+        return {
+          issueNumber: issue.number,
+          title: issue.title,
+          action: decision.action
+        };
       case "IGNORE":
       default:
-        return;
+        return null;
     }
+  }
+
+  public async processIssue(issue: GitHubIssue): Promise<void> {
+    await this.processIssueInternal(issue);
   }
 
   public async start(): Promise<void> {
@@ -132,13 +151,47 @@ export class DaemonCore {
     await this.acpManager.stopSession(sessionId);
   }
 
-  public async triggerManualPoll(): Promise<void> {
-    for (const poller of Object.values(this.pollers)) {
+  public async triggerManualPoll(): Promise<ManualPollSummary> {
+    const repositories = [];
+
+    for (const [repositoryKey, poller] of Object.entries(this.pollers)) {
       const issues = await poller.pollNow();
+      logger.info("Manual poll fetched issues", {
+        repositoryKey,
+        issueNumbers: issues.map((issue) => issue.number)
+      });
+
+      const dispatchedIssues: ManualPollDispatchSummary[] = [];
       for (const issue of issues) {
-        await this.processIssue(issue);
+        logger.info("Manual poll fetched issue", {
+          repositoryKey: issue.repositoryKey,
+          issueNumber: issue.number,
+          title: issue.title
+        });
+        const dispatched = await this.processIssueInternal(issue);
+        if (dispatched) {
+          dispatchedIssues.push(dispatched);
+          logger.info("Manual poll dispatched issue", {
+            repositoryKey: issue.repositoryKey,
+            issueNumber: issue.number,
+            title: issue.title,
+            action: dispatched.action,
+            agentName: dispatched.agentName
+          });
+        }
       }
+
+      repositories.push({
+        repositoryKey,
+        fetchedIssues: issues.map((issue) => ({
+          issueNumber: issue.number,
+          title: issue.title
+        })),
+        dispatchedIssues
+      });
     }
+
+    return { repositories };
   }
 
   public updateConfig(key: string, value: unknown): void {

@@ -115,7 +115,7 @@ Available commands:
 
 - `start`: start the daemon service directly from the CLI
 - `sessions`: list active ACP sessions, including repository key and owner/repo identity
-- `poll`: trigger an immediate GitHub poll cycle across all configured repositories
+- `poll`: trigger an immediate GitHub poll cycle across all configured repositories and print the fetched and dispatched issues
 - `stop <session-id>`: stop a tracked ACP session by session id
 - `config <key> <value>`: change an in-memory config value in the running daemon
 

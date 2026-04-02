@@ -1,9 +1,9 @@
-import type { IPCRequest, IPCResponse } from "../models/types.ts";
+import type { IPCRequest, IPCResponse, ManualPollSummary } from "../models/types.ts";
 
 export interface IPCCommandTarget {
   getActiveSessions(): unknown;
   stopSession(sessionId: string): Promise<void>;
-  triggerManualPoll(): Promise<void>;
+  triggerManualPoll(): Promise<ManualPollSummary>;
   updateConfig(key: string, value: unknown): void;
 }
 
@@ -18,8 +18,11 @@ export async function handleIPCCommand(
       await target.stopSession(String(request.payload.sessionId));
       return { status: "ok", message: `Session ${String(request.payload.sessionId)} stopped.` };
     case "TRIGGER_POLL":
-      await target.triggerManualPoll();
-      return { status: "ok", message: "Manual poll triggered." };
+      return {
+        status: "ok",
+        message: "Manual poll completed.",
+        data: await target.triggerManualPoll()
+      };
     case "SET_CONFIG":
       target.updateConfig(String(request.payload.key), request.payload.value);
       return {

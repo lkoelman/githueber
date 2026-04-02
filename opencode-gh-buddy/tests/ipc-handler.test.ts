@@ -41,4 +41,55 @@ describe("handleIPCCommand", () => {
       ]
     });
   });
+
+  test("returns the manual poll summary for the poll command", async () => {
+    const response = await handleIPCCommand(
+      {
+        getActiveSessions: () => [],
+        stopSession: async () => {},
+        triggerManualPoll: async () => ({
+          repositories: [
+            {
+              repositoryKey: "frontend",
+              fetchedIssues: [{ issueNumber: 42, title: "Test issue" }],
+              dispatchedIssues: [
+                {
+                  issueNumber: 42,
+                  title: "Test issue",
+                  action: "START_SESSION",
+                  agentName: "github-worker-agent"
+                }
+              ]
+            }
+          ]
+        }),
+        updateConfig: () => {}
+      },
+      {
+        command: "TRIGGER_POLL",
+        payload: {}
+      }
+    );
+
+    expect(response).toEqual({
+      status: "ok",
+      message: "Manual poll completed.",
+      data: {
+        repositories: [
+          {
+            repositoryKey: "frontend",
+            fetchedIssues: [{ issueNumber: 42, title: "Test issue" }],
+            dispatchedIssues: [
+              {
+                issueNumber: 42,
+                title: "Test issue",
+                action: "START_SESSION",
+                agentName: "github-worker-agent"
+              }
+            ]
+          }
+        ]
+      }
+    });
+  });
 });

@@ -1,7 +1,7 @@
 #!/usr/bin/env /home/lkoel/.bun/bin/bun
 import net from "node:net";
 import { parseCliArgs } from "./args.ts";
-import type { IPCResponse } from "../models/types.ts";
+import type { IPCResponse, ManualPollSummary } from "../models/types.ts";
 import { startDaemon } from "../startDaemon.ts";
 
 function formatUsage(): string {
@@ -25,6 +25,34 @@ export function formatCliError(error: unknown, verbose: boolean): string {
   }
 
   return error.message;
+}
+
+export function formatManualPollSummary(summary: ManualPollSummary): string {
+  const lines = ["Manual poll completed."];
+
+  for (const repository of summary.repositories) {
+    lines.push(`Repository ${repository.repositoryKey}`);
+    lines.push(
+      repository.fetchedIssues.length > 0
+        ? `  Fetched issues: ${repository.fetchedIssues
+            .map((issue) => `#${issue.issueNumber} ${issue.title}`)
+            .join("; ")}`
+        : "  Fetched issues: none"
+    );
+    lines.push(
+      repository.dispatchedIssues.length > 0
+        ? `  Dispatched: ${repository.dispatchedIssues
+            .map((issue) =>
+              `#${issue.issueNumber} ${issue.title} -> ${issue.action}${
+                issue.agentName ? ` (${issue.agentName})` : ""
+              }`
+            )
+            .join("; ")}`
+        : "  Dispatched: none"
+    );
+  }
+
+  return lines.join("\n");
 }
 
 function sendCommand(socketPath: string, request: object): Promise<IPCResponse> {
@@ -66,6 +94,11 @@ async function main(): Promise<void> {
     }
 
     const response = await sendCommand(socketPath, command.request);
+
+    if (command.request.command === "TRIGGER_POLL" && response.data) {
+      console.log(formatManualPollSummary(response.data as ManualPollSummary));
+      return;
+    }
 
     if (response.data) {
       console.log(JSON.stringify(response.data, null, 2));
