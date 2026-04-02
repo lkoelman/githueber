@@ -41,12 +41,6 @@ Set the shared daemon config:
 - `acp.endpoint`
 - `ipc.socket_path`
 
-Start the OpenCode ACP server in another terminal:
-
-```bash
-opencode acp --port 9000
-```
-
 Export the daemon environment:
 
 ```bash
@@ -57,6 +51,12 @@ export GH_BUDDY_CONFIG=/path/to/gh-buddy-config.yaml
 If `GITHUB_TOKEN` is unset or cannot access a configured repository, the daemon falls back to `gh auth token`.
 
 ## Usage
+
+Start the OpenCode ACP server in another terminal:
+
+```bash
+opencode acp --port 9000
+```
 
 Run the daemon in development:
 
