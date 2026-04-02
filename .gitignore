@@ -1,3 +1,6 @@
+# Custom
+.codex/skills/openspec-*
+
 # Python
 __pycache__/
 *.py[cod]
