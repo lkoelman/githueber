@@ -81,7 +81,7 @@
 
 When modifying code, check if these docs need updates:
 - README.md - Overview, getting started, installation
-- Module-specific README files (e.g., `<module>/**/README.md`)
+- Component-specific documentation (e.g., `<component>/**/{README.md,ARCHITECTURE.md}`)
 
 **When to update docs:**
 - New features: add how-to guide or update relevant README
