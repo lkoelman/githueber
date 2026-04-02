@@ -65,13 +65,19 @@ cd agents-config/opencode-gh-buddy
 bun run src/index.ts
 ```
 
+Or after linking the CLI:
+
+```bash
+gbr start
+```
+
 Build the daemon and CLI:
 
 ```bash
 bun run build:all
 ```
 
-Install the CLI globally:
+Install the CLI (`gbr` command) globally:
 
 ```bash
 bun link
@@ -90,6 +96,8 @@ The CLI talks to the daemon over a Unix domain socket. The default socket path i
 Run commands from the package directory:
 
 ```bash
+bun run src/cli/index.ts start
+bun run src/cli/index.ts --verbose start
 bun run src/cli/index.ts sessions
 bun run src/cli/index.ts poll
 bun run src/cli/index.ts stop <session-id>
@@ -99,15 +107,21 @@ bun run src/cli/index.ts config polling.intervalMs 60000
 After building, you can also use:
 
 ```bash
+bun run dist/cli.js start
 bun run dist/cli.js sessions
 ```
 
 Available commands:
 
+- `start`: start the daemon service directly from the CLI
 - `sessions`: list active ACP sessions, including repository key and owner/repo identity
 - `poll`: trigger an immediate GitHub poll cycle across all configured repositories
 - `stop <session-id>`: stop a tracked ACP session by session id
 - `config <key> <value>`: change an in-memory config value in the running daemon
+
+Global options:
+
+- `--verbose`, `-v`: print a full stack trace when the CLI exits due to an error
 
 If the daemon uses a non-default socket path:
 

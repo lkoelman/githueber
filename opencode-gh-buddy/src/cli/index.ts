@@ -2,15 +2,29 @@
 import net from "node:net";
 import { parseCliArgs } from "./args.ts";
 import type { IPCResponse } from "../models/types.ts";
+import { startDaemon } from "../startDaemon.ts";
 
 function formatUsage(): string {
   return [
     "Usage:",
-    "  gh-buddy sessions",
-    "  gh-buddy stop <sessionId>",
-    "  gh-buddy poll",
-    "  gh-buddy config <key> <value>"
+    "  gbr [--verbose|-v] start",
+    "  gbr [--verbose|-v] sessions",
+    "  gbr [--verbose|-v] stop <sessionId>",
+    "  gbr [--verbose|-v] poll",
+    "  gbr [--verbose|-v] config <key> <value>"
   ].join("\n");
+}
+
+export function formatCliError(error: unknown, verbose: boolean): string {
+  if (!(error instanceof Error)) {
+    return String(error);
+  }
+
+  if (verbose) {
+    return error.stack ?? error.message;
+  }
+
+  return error.message;
 }
 
 function sendCommand(socketPath: string, request: object): Promise<IPCResponse> {
@@ -44,8 +58,14 @@ async function main(): Promise<void> {
   }
 
   try {
-    const request = parseCliArgs(process.argv.slice(2));
-    const response = await sendCommand(socketPath, request);
+    const command = parseCliArgs(process.argv.slice(2));
+
+    if (command.kind === "START_DAEMON") {
+      await startDaemon();
+      return;
+    }
+
+    const response = await sendCommand(socketPath, command.request);
 
     if (response.data) {
       console.log(JSON.stringify(response.data, null, 2));
@@ -55,11 +75,14 @@ async function main(): Promise<void> {
     if (response.message) {
       console.log(response.message);
     }
-  } catch (error: any) {
-    console.error(error.message);
+  } catch (error: unknown) {
+    const verbose = process.argv.includes("--verbose") || process.argv.includes("-v");
+    console.error(formatCliError(error, verbose));
     console.log(formatUsage());
     process.exit(1);
   }
 }
 
-void main();
+if (import.meta.main) {
+  void main();
+}
