@@ -44,6 +44,7 @@
 1. **Read before writing**: NEVER propose changes to code you haven't read. Use Read tool first.
 2. **No surprise changes**: Only make changes directly requested or clearly necessary for the task.
 3. **Smallest scope first**: Build/test single modules or packages before workspace-wide operations.
+4. **Preserve documentation comments**: Keep existing documentation comments when editing code. If a comment becomes inaccurate, rewrite it to match the new behavior; do not remove documentation comments without replacing them with accurate documentation.
 
 ### What NOT to do (unless explicitly requested)
 

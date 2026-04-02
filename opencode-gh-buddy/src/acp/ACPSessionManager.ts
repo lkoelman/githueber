@@ -19,16 +19,25 @@ interface ACPClientLike {
 
 type FetchLike = typeof fetch;
 
+/**
+ * Minimal ACP client adapter for the HTTP API exposed by `opencode acp`.
+ *
+ * This preserves the daemon's existing `ACPClientLike` contract even though the
+ * installed ACP SDK no longer exports the older high-level `Client` wrapper the
+ * codebase was originally written against.
+ */
 class OpenCodeHTTPClient implements ACPClientLike {
   constructor(
     private readonly endpoint: string,
     private readonly fetchImpl: FetchLike
   ) {}
 
+  /** Resolves a relative API path against the configured OpenCode server URL. */
   private buildUrl(path: string): string {
     return new URL(path, this.endpoint.endsWith("/") ? this.endpoint : `${this.endpoint}/`).toString();
   }
 
+  /** Sends an HTTP request to OpenCode and raises a typed error on non-2xx responses. */
   private async request(path: string, init?: RequestInit): Promise<Response> {
     const response = await this.fetchImpl(this.buildUrl(path), init);
     if (!response.ok) {
@@ -37,6 +46,7 @@ class OpenCodeHTTPClient implements ACPClientLike {
     return response;
   }
 
+  /** Verifies that the target OpenCode server is reachable before the daemon starts polling. */
   async connect(): Promise<void> {
     const response = await this.request("./global/health");
     const health = await response.json() as { healthy?: boolean };
@@ -46,6 +56,7 @@ class OpenCodeHTTPClient implements ACPClientLike {
     }
   }
 
+  /** Creates a new OpenCode session and immediately sends the daemon's initialization prompt. */
   async createSession(request: ACPCreateSessionRequest): Promise<{ id: string }> {
     const sessionResponse = await this.request("./session", {
       method: "POST",
@@ -59,6 +70,7 @@ class OpenCodeHTTPClient implements ACPClientLike {
     return session;
   }
 
+  /** Dispatches a prompt turn to an existing OpenCode session, optionally pinning the agent mode. */
   private async sendPrompt(sessionId: string, text: string, agent?: string): Promise<void> {
     const payload: Record<string, unknown> = {
       parts: [{ type: "text", text }]
@@ -75,10 +87,12 @@ class OpenCodeHTTPClient implements ACPClientLike {
     });
   }
 
+  /** Resumes an existing session by sending another text prompt turn. */
   async sendMessage(sessionId: string, payload: ACPMessagePayload): Promise<void> {
     await this.sendPrompt(sessionId, payload.text);
   }
 
+  /** Requests that OpenCode abort the active turn for a tracked session. */
   async stopSession(sessionId: string): Promise<void> {
     await this.request(`./session/${sessionId}/abort`, {
       method: "POST"
@@ -86,6 +100,13 @@ class OpenCodeHTTPClient implements ACPClientLike {
   }
 }
 
+/**
+ * Creates the ACP client used by the daemon.
+ *
+ * The preferred path is the SDK's legacy `Client` export when available. When
+ * the installed SDK only exposes low-level protocol primitives, the daemon
+ * falls back to the HTTP API served by `opencode acp`.
+ */
 export async function createACPClient(
   endpoint: string,
   fetchImpl: FetchLike = fetch
