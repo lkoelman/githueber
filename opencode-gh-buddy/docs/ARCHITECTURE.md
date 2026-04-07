@@ -137,7 +137,7 @@ The prompt builder converts a `GitHubIssue` into structured context, including r
 - Implementation:
   - [HarnessSessionManager.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/harness/HarnessSessionManager.ts)
   - [MultiHarnessSessionManager.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/harness/MultiHarnessSessionManager.ts)
-  - [ACPSessionManager.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/acp/ACPSessionManager.ts)
+  - [OpenCodeHarnessClient.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/opencode/OpenCodeHarnessClient.ts)
   - [CodexHarnessClient.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/codex/CodexHarnessClient.ts)
 - Main interfaces:
   - `createOpenCodeHarnessClient(endpoint, fetchImpl?)`

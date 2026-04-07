@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { ACPSessionManager, createACPClient } from "../src/acp/ACPSessionManager.ts";
+import { HarnessSessionManager } from "../src/harness/HarnessSessionManager.ts";
+import { createACPClient } from "../src/opencode/OpenCodeHarnessClient.ts";
 import type { GitHubIssue } from "../src/models/types.ts";
 
 describe("createACPClient", () => {
@@ -141,12 +142,12 @@ describe("createACPClient", () => {
   });
 });
 
-describe("ACPSessionManager session events", () => {
+describe("HarnessSessionManager session events", () => {
   test("publishes structured events for session startup, prompts, and lifecycle updates", async () => {
     const listeners = new Map<string, (payload: { sessionId: string }) => void>();
     const events: Array<Record<string, unknown>> = [];
 
-    const manager = new ACPSessionManager({
+    const manager = new HarnessSessionManager({
       async connect(): Promise<void> {},
       async createSession(): Promise<{ id: string }> {
         return { id: "ses_123" };

@@ -1,6 +1,5 @@
 import { ConfigManager } from "./config/ConfigManager.ts";
-import { createOpenCodeHarnessClient } from "./acp/ACPSessionManager.ts";
-import { createSessionEventEchoListener } from "./acp/sessionEvents.ts";
+import { createSessionEventEchoListener } from "./harness/sessionEvents.ts";
 import { createCodexHarnessClient } from "./codex/CodexHarnessClient.ts";
 import { DaemonCore } from "./daemon.ts";
 import { GitHubPoller, createOctokit, resolveGitHubToken } from "./github/GitHubPoller.ts";
@@ -8,6 +7,7 @@ import { HarnessSessionManager } from "./harness/HarnessSessionManager.ts";
 import { MultiHarnessSessionManager } from "./harness/MultiHarnessSessionManager.ts";
 import { IPCServer } from "./ipc/IPCServer.ts";
 import type { DaemonConfig, HarnessName, RepositoryConfig, SessionManagerLike } from "./models/types.ts";
+import { createOpenCodeHarnessClient } from "./opencode/OpenCodeHarnessClient.ts";
 import { StateRouter } from "./router/StateRouter.ts";
 import { logger } from "./utils/logger.ts";
 

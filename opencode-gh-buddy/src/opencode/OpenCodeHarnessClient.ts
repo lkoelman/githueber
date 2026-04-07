@@ -1,5 +1,4 @@
 import type { HarnessClientLike } from "../models/types.ts";
-import { HarnessSessionManager } from "../harness/HarnessSessionManager.ts";
 
 interface OpenCodeMessageUpdatedEvent {
   payload?: {
@@ -52,6 +51,23 @@ type FetchLike = typeof fetch;
 
 function sessionMessageKey(sessionId: string, messageId: string): string {
   return `${sessionId}:${messageId}`;
+}
+
+function findEventSeparator(buffer: string): { index: number; length: number } | null {
+  const newlineIndex = buffer.indexOf("\n\n");
+  const carriageReturnIndex = buffer.indexOf("\r\n\r\n");
+
+  if (newlineIndex === -1) {
+    return carriageReturnIndex === -1 ? null : { index: carriageReturnIndex, length: 4 };
+  }
+
+  if (carriageReturnIndex === -1) {
+    return { index: newlineIndex, length: 2 };
+  }
+
+  return newlineIndex < carriageReturnIndex
+    ? { index: newlineIndex, length: 2 }
+    : { index: carriageReturnIndex, length: 4 };
 }
 
 /** Implements the daemon-facing harness contract over OpenCode's session HTTP API plus SSE events. */
@@ -323,23 +339,6 @@ class OpenCodeHttpSseClient implements HarnessClientLike {
   }
 }
 
-function findEventSeparator(buffer: string): { index: number; length: number } | null {
-  const newlineIndex = buffer.indexOf("\n\n");
-  const carriageReturnIndex = buffer.indexOf("\r\n\r\n");
-
-  if (newlineIndex === -1) {
-    return carriageReturnIndex === -1 ? null : { index: carriageReturnIndex, length: 4 };
-  }
-
-  if (carriageReturnIndex === -1) {
-    return { index: newlineIndex, length: 2 };
-  }
-
-  return newlineIndex < carriageReturnIndex
-    ? { index: newlineIndex, length: 2 }
-    : { index: carriageReturnIndex, length: 4 };
-}
-
 /** Creates the OpenCode harness client used by the daemon. */
 export async function createOpenCodeHarnessClient(
   endpoint: string,
@@ -349,5 +348,3 @@ export async function createOpenCodeHarnessClient(
 }
 
 export const createACPClient = createOpenCodeHarnessClient;
-export { HarnessSessionManager };
-export { HarnessSessionManager as ACPSessionManager };
