@@ -54,7 +54,8 @@ The final line of the plan comment must be exactly `[AWAITING_APPROVAL]`.
 9. Implement only the requested change.
 10. Run the most relevant local tests or checks.
 11. Create a branch named after the issue, such as `issue-42` or `fix/issue-42`. In worktree mode, create or switch that branch inside the issue worktree.
-12. Open a pull request with `gh pr create` and link the issue in the PR body.
+12. Open a pull request with `gh pr create` and link the issue in the PR body. Add a feature/fix description and discuss implementation details.
+13. Post a comment to the issue that refers to the PR and explains how it addresses the issue.
 
 ## Operating rules
 
