@@ -4,6 +4,7 @@ export type CliCommand =
   | { kind: "START_DAEMON"; verbose: boolean }
   | { kind: "IPC"; verbose: boolean; request: IPCRequest };
 
+/** Parses shell arguments into either a daemon-start action or a concrete IPC request. */
 export function parseCliArgs(argv: string[]): CliCommand {
   const verbose = argv.includes("--verbose") || argv.includes("-v");
   const args = argv.filter((arg) => arg !== "--verbose" && arg !== "-v");

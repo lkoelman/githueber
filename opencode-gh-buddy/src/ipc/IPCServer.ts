@@ -4,6 +4,7 @@ import { handleIPCCommand } from "./handler.ts";
 import { logger } from "../utils/logger.ts";
 import type { IPCCommandTarget, } from "./handler.ts";
 
+/** Hosts the local Unix socket that exposes daemon control operations to the CLI. */
 export class IPCServer {
   private server?: net.Server;
 
@@ -12,6 +13,7 @@ export class IPCServer {
     private readonly target: IPCCommandTarget
   ) {}
 
+  /** Starts listening on the configured socket path and serves JSON IPC requests. */
   start(): void {
     if (existsSync(this.socketPath)) {
       unlinkSync(this.socketPath);
@@ -35,6 +37,7 @@ export class IPCServer {
     });
   }
 
+  /** Stops the socket server and removes the filesystem entry if it still exists. */
   stop(): void {
     this.server?.close();
     this.server = undefined;

@@ -33,6 +33,7 @@ interface OctokitLike {
 type RepositoryAccessValidator = (token: string, owner: string, repo: string) => Promise<boolean>;
 type FallbackTokenReader = () => string | null;
 
+/** Creates the Octokit client used for GitHub issue polling and label mutations. */
 export async function createOctokit(token: string): Promise<OctokitLike> {
   const mod = await import("@octokit/rest");
   const OctokitCtor = (mod as { Octokit?: new (config: { auth: string }) => OctokitLike }).Octokit;
@@ -124,12 +125,14 @@ export async function resolveGitHubToken(
   throw new Error(`No GitHub token could access ${owner}/${repo}. Check GITHUB_TOKEN or run gh auth login.`);
 }
 
+/** Normalizes GitHub label payloads into a plain list of label names. */
 function normalizeLabels(labels: OctokitIssue["labels"]): string[] {
   return labels
     .map((label) => (typeof label === "string" ? label : label.name ?? ""))
     .filter((value): value is string => Boolean(value));
 }
 
+/** Converts GitHub API comments into the daemon's shared comment shape. */
 function normalizeComments(comments: OctokitIssueComment[]): GitHubComment[] {
   return comments.map((comment) => ({
     id: comment.id,
@@ -140,6 +143,7 @@ function normalizeComments(comments: OctokitIssueComment[]): GitHubComment[] {
   }));
 }
 
+/** Polls one configured repository and emits normalized issue state to the daemon core. */
 export class GitHubPoller extends EventEmitter implements GitHubPollerLike {
   private lastEtag: string | null = null;
   private timer: Timer | null = null;
@@ -155,6 +159,7 @@ export class GitHubPoller extends EventEmitter implements GitHubPollerLike {
     super();
   }
 
+  /** Starts the repository poll loop and forwards any fetched issues to the subscriber. */
   start(intervalMs: number): void {
     this.stop();
     this.timer = setInterval(() => {
@@ -166,6 +171,7 @@ export class GitHubPoller extends EventEmitter implements GitHubPollerLike {
     }, intervalMs);
   }
 
+  /** Stops the repository poll loop if one is active. */
   stop(): void {
     if (this.timer) {
       clearInterval(this.timer);
@@ -173,10 +179,12 @@ export class GitHubPoller extends EventEmitter implements GitHubPollerLike {
     }
   }
 
+  /** Registers the single callback that receives normalized issues after polling. */
   onIssuesUpdated(callback: (issues: GitHubIssue[]) => Promise<void> | void): void {
     this.issuesUpdatedCallback = callback;
   }
 
+  /** Fetches open issues for the repository, excluding pull requests, using ETag caching when available. */
   async pollNow(): Promise<GitHubIssue[]> {
     try {
       const response = await this.octokit.issues.listForRepo({
@@ -213,6 +221,7 @@ export class GitHubPoller extends EventEmitter implements GitHubPollerLike {
     }
   }
 
+  /** Returns the most recent issue comment body for approval and revision routing decisions. */
   async getLatestComment(issueNumber: number): Promise<string | null> {
     const response = await this.octokit.issues.listComments({
       owner: this.owner,
@@ -224,6 +233,7 @@ export class GitHubPoller extends EventEmitter implements GitHubPollerLike {
     return comments.at(-1)?.body ?? null;
   }
 
+  /** Applies the daemon's label transition by adding the new label and optionally removing the old one. */
   async updateIssueLabel(issueNumber: number, addLabel: string, removeLabel?: string): Promise<void> {
     await this.octokit.issues.addLabels({
       owner: this.owner,

@@ -10,6 +10,7 @@ import type {
 } from "./models/types.ts";
 import { logger } from "./utils/logger.ts";
 
+/** Coordinates pollers, routing, ACP sessions, and GitHub label transitions for all repositories. */
 export class DaemonCore {
   constructor(
     private readonly pollers: Record<string, GitHubPollerLike>,
@@ -20,6 +21,7 @@ export class DaemonCore {
     this.setupBindings();
   }
 
+  /** Wires poller updates and ACP lifecycle callbacks into the daemon control loop. */
   private setupBindings(): void {
     for (const poller of Object.values(this.pollers)) {
       poller.onIssuesUpdated(async (issues) => {
@@ -54,6 +56,7 @@ export class DaemonCore {
     });
   }
 
+  /** Returns the poller responsible for a repository key or fails fast on config drift. */
   private getPoller(repositoryKey: string): GitHubPollerLike {
     const poller = this.pollers[repositoryKey];
     if (!poller) {
@@ -62,10 +65,12 @@ export class DaemonCore {
     return poller;
   }
 
+  /** Looks up a tracked session record by ACP session id. */
   private findSessionById(sessionId: string): AgentSessionRecord | undefined {
     return this.acpManager.listSessions().find((session) => session.sessionId === sessionId);
   }
 
+  /** Evaluates and executes the next action for one issue, returning manual-poll summary data when relevant. */
   private async processIssueInternal(issue: GitHubIssue): Promise<ManualPollDispatchSummary | null> {
     const activeSession = this.acpManager.getSessionForIssue(issue.repositoryKey, issue.number);
     const labels = this.config.repositories[issue.repositoryKey]?.labels;
@@ -122,10 +127,12 @@ export class DaemonCore {
     }
   }
 
+  /** Processes a single issue update received from a poller subscription. */
   public async processIssue(issue: GitHubIssue): Promise<void> {
     await this.processIssueInternal(issue);
   }
 
+  /** Initializes ACP connectivity and starts each configured repository poll loop. */
   public async start(): Promise<void> {
     await this.acpManager.initialize();
     for (const poller of Object.values(this.pollers)) {
@@ -137,20 +144,24 @@ export class DaemonCore {
     });
   }
 
+  /** Stops repository polling without mutating any existing ACP sessions. */
   public stop(): void {
     for (const poller of Object.values(this.pollers)) {
       poller.stop();
     }
   }
 
+  /** Returns the in-memory view of all active agent sessions. */
   public getActiveSessions(): AgentSessionRecord[] {
     return this.acpManager.listSessions();
   }
 
+  /** Stops one session through ACP using its runtime session id. */
   public async stopSession(sessionId: string): Promise<void> {
     await this.acpManager.stopSession(sessionId);
   }
 
+  /** Runs an immediate poll across repositories and reports which issues were fetched and dispatched. */
   public async triggerManualPoll(): Promise<ManualPollSummary> {
     const repositories = [];
 
@@ -194,6 +205,7 @@ export class DaemonCore {
     return { repositories };
   }
 
+  /** Applies an IPC-driven in-memory config update to a top-level config section. */
   public updateConfig(key: string, value: unknown): void {
     const [section, field] = key.split(".");
     if (!section || !field) {

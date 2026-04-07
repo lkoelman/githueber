@@ -11,6 +11,7 @@ const configured = ((process.env.LOG_LEVEL ?? "info").toLowerCase() as LogLevel)
 const currentLevel = order[configured] ? configured : "info";
 const isSystemd = process.env.INVOCATION_ID !== undefined;
 
+/** Emits a log record in either plain-text or JSON form depending on the runtime environment. */
 function emit(level: LogLevel, message: string, meta?: Record<string, unknown>): void {
   if (order[level] < order[currentLevel]) {
     return;
@@ -31,6 +32,7 @@ function emit(level: LogLevel, message: string, meta?: Record<string, unknown>):
   console.log(`${level}: ${message}${suffix}`);
 }
 
+/** Lightweight structured logger used across the daemon and CLI entry points. */
 export const logger = {
   debug(message: string, meta?: Record<string, unknown>): void {
     emit("debug", message, meta);

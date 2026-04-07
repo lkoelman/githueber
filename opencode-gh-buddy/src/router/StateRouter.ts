@@ -1,9 +1,11 @@
 import type { AgentSessionRecord, DaemonConfig, GitHubIssue, RouteDecision } from "../models/types.ts";
 import { buildInitializationPrompt } from "../prompts.ts";
 
+/** Encodes the daemon's side-effect-free rules for starting, resuming, or ignoring issue work. */
 export class StateRouter {
   constructor(private readonly config: DaemonConfig) {}
 
+  /** Evaluates a repository-scoped issue snapshot and returns the next control-plane action. */
   public evaluateIssueState(
     issue: GitHubIssue,
     latestComment?: string | null,

@@ -7,6 +7,7 @@ export interface IPCCommandTarget {
   updateConfig(key: string, value: unknown): void;
 }
 
+/** Dispatches one parsed IPC request to the daemon-backed command target. */
 export async function handleIPCCommand(
   target: IPCCommandTarget,
   request: IPCRequest

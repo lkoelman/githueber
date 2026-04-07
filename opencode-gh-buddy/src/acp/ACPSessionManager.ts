@@ -125,10 +125,12 @@ export async function createACPClient(
   throw new Error("ACP SDK Client export not available and endpoint is not an OpenCode HTTP server URL");
 }
 
+/** Produces a repository-scoped issue key so identical issue numbers cannot collide. */
 function issueKey(repositoryKey: string, issueNumber: number): string {
   return `${repositoryKey}#${issueNumber}`;
 }
 
+/** Tracks daemon-managed OpenCode sessions and translates ACP events into session state updates. */
 export class ACPSessionManager implements ACPManagerLike {
   private readonly activeSessions = new Map<string, AgentSessionRecord>();
   private readonly pauseListeners = new Set<(sessionId: string) => Promise<void> | void>();
@@ -138,6 +140,7 @@ export class ACPSessionManager implements ACPManagerLike {
     this.bindEvents();
   }
 
+  /** Subscribes to ACP lifecycle events and fans them out to daemon listeners. */
   private bindEvents(): void {
     this.acpClient.on?.("sessionPaused", ({ sessionId }) => {
       this.updateStatus(sessionId, "PAUSED_AWAITING_APPROVAL");
@@ -154,6 +157,7 @@ export class ACPSessionManager implements ACPManagerLike {
     });
   }
 
+  /** Updates the cached status for the tracked session record with the given ACP session id. */
   private updateStatus(sessionId: string, status: SessionStatus): void {
     for (const [key, record] of this.activeSessions.entries()) {
       if (record.sessionId === sessionId) {
@@ -162,18 +166,22 @@ export class ACPSessionManager implements ACPManagerLike {
     }
   }
 
+  /** Verifies ACP connectivity before the daemon starts accepting work. */
   async initialize(): Promise<void> {
     await this.acpClient.connect();
   }
 
+  /** Returns the active session currently associated with a repository issue, if any. */
   getSessionForIssue(repositoryKey: string, issueNumber: number): AgentSessionRecord | undefined {
     return this.activeSessions.get(issueKey(repositoryKey, issueNumber));
   }
 
+  /** Lists every session record the daemon is currently tracking in memory. */
   listSessions(): AgentSessionRecord[] {
     return Array.from(this.activeSessions.values());
   }
 
+  /** Creates a new ACP session for an issue and records the resulting runtime session id. */
   async startNewSession(issue: GitHubIssue, agentName: string, prompt: string): Promise<void> {
     const key = issueKey(issue.repositoryKey, issue.number);
 
@@ -203,10 +211,12 @@ export class ACPSessionManager implements ACPManagerLike {
     });
   }
 
+  /** Sends a follow-up prompt to an existing ACP session, typically after human feedback. */
   async sendMessageToSession(sessionId: string, message: string): Promise<void> {
     await this.acpClient.sendMessage(sessionId, { text: message });
   }
 
+  /** Stops a tracked session and removes its repository-scoped mapping from memory. */
   async stopSession(sessionId: string): Promise<void> {
     if (this.acpClient.stopSession) {
       await this.acpClient.stopSession(sessionId);
@@ -219,10 +229,12 @@ export class ACPSessionManager implements ACPManagerLike {
     }
   }
 
+  /** Registers a callback for ACP pause events that require user approval in GitHub. */
   onSessionPaused(callback: (sessionId: string) => Promise<void> | void): void {
     this.pauseListeners.add(callback);
   }
 
+  /** Registers a callback for ACP completion events so labels can be transitioned. */
   onSessionCompleted(callback: (sessionId: string) => Promise<void> | void): void {
     this.completionListeners.add(callback);
   }

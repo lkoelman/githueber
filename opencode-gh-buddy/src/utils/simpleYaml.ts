@@ -1,6 +1,7 @@
 type Scalar = string | number | boolean | null;
 type NodeValue = Scalar | Record<string, NodeValue>;
 
+/** Removes matching single or double quotes around a YAML scalar token. */
 function stripQuotes(value: string): string {
   if (
     (value.startsWith('"') && value.endsWith('"')) ||
@@ -11,6 +12,7 @@ function stripQuotes(value: string): string {
   return value;
 }
 
+/** Parses the limited scalar forms supported by the daemon's config parser. */
 function parseScalar(rawValue: string): Scalar {
   const value = stripQuotes(rawValue.trim());
   if (value === "null") {
@@ -28,6 +30,7 @@ function parseScalar(rawValue: string): Scalar {
   return value;
 }
 
+/** Parses the repo's indentation-based YAML subset into nested plain objects. */
 export function parseSimpleYaml(source: string): Record<string, NodeValue> {
   const root: Record<string, NodeValue> = {};
   const stack: Array<{ indent: number; target: Record<string, NodeValue> }> = [

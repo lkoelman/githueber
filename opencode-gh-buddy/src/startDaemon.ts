@@ -5,6 +5,7 @@ import { GitHubPoller, createOctokit, resolveGitHubToken } from "./github/GitHub
 import { IPCServer } from "./ipc/IPCServer.ts";
 import { StateRouter } from "./router/StateRouter.ts";
 
+/** Builds the runtime graph from config and starts the daemon plus its IPC control socket. */
 export async function startDaemon(): Promise<void> {
   const configPath = process.env.GH_BUDDY_CONFIG ?? "./config/gh-buddy-config.yaml";
   const configManager = new ConfigManager(configPath);

@@ -4,6 +4,7 @@ import { parseSimpleYaml } from "../utils/simpleYaml.ts";
 
 type ParsedConfig = Record<string, any>;
 
+/** Validates that a config leaf is a required non-empty string. */
 function asString(value: unknown, key: string): string {
   if (typeof value !== "string" || !value) {
     throw new Error(`Expected non-empty string for ${key}`);
@@ -11,6 +12,7 @@ function asString(value: unknown, key: string): string {
   return value;
 }
 
+/** Validates that a config leaf is a boolean flag. */
 function asBoolean(value: unknown, key: string): boolean {
   if (typeof value !== "boolean") {
     throw new Error(`Expected boolean for ${key}`);
@@ -18,6 +20,7 @@ function asBoolean(value: unknown, key: string): boolean {
   return value;
 }
 
+/** Validates that a config leaf is a numeric value. */
 function asNumber(value: unknown, key: string): number {
   if (typeof value !== "number" || Number.isNaN(value)) {
     throw new Error(`Expected number for ${key}`);
@@ -25,6 +28,7 @@ function asNumber(value: unknown, key: string): number {
   return value;
 }
 
+/** Validates that a config node is a mapping object. */
 function asObject(value: unknown, key: string): ParsedConfig {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`Expected mapping for ${key}`);
@@ -32,6 +36,7 @@ function asObject(value: unknown, key: string): ParsedConfig {
   return value as ParsedConfig;
 }
 
+/** Normalizes the repository label block into the daemon's internal shape. */
 function normalizeLabels(raw: ParsedConfig, keyPrefix: string): LabelConfig {
   return {
     queue: asString(raw.queue_label, `${keyPrefix}.queue_label`),
@@ -43,6 +48,7 @@ function normalizeLabels(raw: ParsedConfig, keyPrefix: string): LabelConfig {
   };
 }
 
+/** Builds a validated repository configuration from raw YAML input. */
 function normalizeRepository(key: string, raw: ParsedConfig): RepositoryConfig {
   const labels = asObject(raw.labels, `repositories.${key}.labels`);
   const agentMapping = asObject(raw.agent_mapping ?? {}, `repositories.${key}.agent_mapping`);
@@ -59,6 +65,7 @@ function normalizeRepository(key: string, raw: ParsedConfig): RepositoryConfig {
   };
 }
 
+/** Loads, validates, and exposes daemon configuration from the repo-local YAML file. */
 export class ConfigManager {
   private readonly config: DaemonConfig;
 
@@ -67,6 +74,7 @@ export class ConfigManager {
     this.config = this.normalize(parseSimpleYaml(file));
   }
 
+  /** Converts the parsed YAML tree into the strongly shaped runtime config. */
   private normalize(raw: ParsedConfig): DaemonConfig {
     const repositories = asObject(raw.repositories, "repositories");
     const execution = asObject(raw.execution, "execution");
@@ -108,10 +116,12 @@ export class ConfigManager {
     };
   }
 
+  /** Returns the validated daemon configuration used to construct runtime services. */
   public getConfig(): DaemonConfig {
     return this.config;
   }
 
+  /** Updates a top-level config field in memory for IPC-driven runtime changes. */
   public updateValue(key: string, value: unknown): void {
     const [section, field] = key.split(".");
     if (!section || !field) {

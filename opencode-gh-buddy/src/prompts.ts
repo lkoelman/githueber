@@ -1,5 +1,6 @@
 import type { GitHubIssue } from "./models/types.ts";
 
+/** Builds the repository-aware prompt that seeds a new OpenCode session from a GitHub issue. */
 export function buildInitializationPrompt(issue: GitHubIssue, agentName: string): string {
   const labels = issue.labels.join(", ") || "(none)";
 

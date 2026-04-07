@@ -4,6 +4,7 @@ import { parseCliArgs } from "./args.ts";
 import type { IPCResponse, ManualPollSummary } from "../models/types.ts";
 import { startDaemon } from "../startDaemon.ts";
 
+/** Returns the CLI help text shared by normal usage and error paths. */
 function formatUsage(): string {
   return [
     "Usage:",
@@ -15,6 +16,7 @@ function formatUsage(): string {
   ].join("\n");
 }
 
+/** Formats CLI failures tersely by default, with optional stack traces for verbose mode. */
 export function formatCliError(error: unknown, verbose: boolean): string {
   if (!(error instanceof Error)) {
     return String(error);
@@ -27,6 +29,7 @@ export function formatCliError(error: unknown, verbose: boolean): string {
   return error.message;
 }
 
+/** Renders the daemon's repository-by-repository manual poll result for terminal output. */
 export function formatManualPollSummary(summary: ManualPollSummary): string {
   const lines = ["Manual poll completed."];
 
@@ -55,6 +58,7 @@ export function formatManualPollSummary(summary: ManualPollSummary): string {
   return lines.join("\n");
 }
 
+/** Sends a single JSON IPC request to the daemon and resolves with the parsed response payload. */
 function sendCommand(socketPath: string, request: object): Promise<IPCResponse> {
   return new Promise((resolve, reject) => {
     const client = net.createConnection({ path: socketPath }, () => {
@@ -77,6 +81,7 @@ function sendCommand(socketPath: string, request: object): Promise<IPCResponse> 
   });
 }
 
+/** Entry point for the operator CLI, covering both daemon startup and IPC commands. */
 async function main(): Promise<void> {
   const socketPath = process.env.GH_BUDDY_SOCKET_PATH ?? "/tmp/opencode-gh-buddy.sock";
 
