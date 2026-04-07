@@ -47,15 +47,21 @@ Features:
 Resources (decide yourself which ones to consult):
 - [GitHub REST API client for JavaScript: octokit/rest.js](https://github.com/octokit/rest.js)
     - documentation: https://octokit.github.io/rest.js/v22/
+
 - [Agent Client Protocol (ACP)](https://agentclientprotocol.com/get-started/architecture)
 - [ACP: protocol](https://agentclientprotocol.com/protocol/overview)
     - https://agentclientprotocol.com/protocol/session-setup
+    - https://agentclientprotocol.com/protocol/prompt-turn
 - [ACP Python SDK](https://github.com/agentclientprotocol/python-sdk)
 - [ACP TypeScript SDK](https://github.com/agentclientprotocol/typescript-sdk)
+    - official example ACP Client: https://github.com/agentclientprotocol/typescript-sdk/sdk/blob/main/src/examples/client.ts
+    - example usage in VS Code ACP Extension: https://github.com/formulahendry/vscode-acp/tree/main/src/core
+
 - [OpenCode Documentation](https://opencode.ai/docs)
 - [OpenCode docs: SDK](https://opencode.ai/docs/sdk/)
 - [OpenCode docs: Server](https://opencode.ai/docs/server/)
 - [OpenCode docs: ACP support](https://opencode.ai/docs/acp/)
+
 - OpenCode example plugins and agents
     - https://github.com/darrenhinde/OpenAgentsControl
     - https://github.com/code-yeongyu/oh-my-openagent
