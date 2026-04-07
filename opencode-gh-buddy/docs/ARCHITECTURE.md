@@ -132,7 +132,7 @@ The prompt builder converts a `GitHubIssue` into structured context, including r
 
 ### 6. ACP Integration Layer
 
-- Responsibility: create and manage OpenCode sessions over ACP, including fallback support for the OpenCode HTTP API.
+- Responsibility: create and manage OpenCode sessions through a bidirectional client built on the OpenCode session API and global SSE event stream.
 - Implementation: [ACPSessionManager.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/acp/ACPSessionManager.ts)
 - Main interfaces:
   - `createACPClient(endpoint, fetchImpl?)`
@@ -145,7 +145,7 @@ The prompt builder converts a `GitHubIssue` into structured context, including r
   - `onSessionCompleted(callback)`
   - `onSessionEvent(callback)`
 
-`ACPSessionManager` is the daemon's bridge to OpenCode. It stores active sessions keyed by repository plus issue number so identical issue numbers in different repositories remain isolated.
+`ACPSessionManager` is the daemon's bridge to OpenCode. Its client opens `/global/event` once, translates session turn updates into daemon pause/completion lifecycle events, and stores active sessions keyed by repository plus issue number so identical issue numbers in different repositories remain isolated.
 It also emits a structured session interaction stream for ACP control events and prompt dispatches. That stream is intentionally transport-agnostic: `gbr start --echo` attaches a stdout sink today, and a future IPC-backed `gbr follow <session-id>` command can subscribe to the same source without changing ACP orchestration logic.
 
 ### 7. Daemon Coordinator

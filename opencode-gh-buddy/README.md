@@ -15,7 +15,7 @@ TypeScript/Bun daemon package that bridges GitHub issue state to OpenCode agents
 
 - Multi-repository config loading for one daemon instance
 - Repository-scoped issue routing and prompt generation
-- ACP session management and GitHub polling wrappers
+- Bidirectional OpenCode session management over HTTP plus SSE and GitHub polling wrappers
 - Unix domain socket IPC server and `gh-buddy` CLI
 - Example config and systemd unit scaffold
 

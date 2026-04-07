@@ -3,8 +3,10 @@ import { ACPSessionManager, createACPClient } from "../src/acp/ACPSessionManager
 import type { GitHubIssue } from "../src/models/types.ts";
 
 describe("createACPClient", () => {
-  test("falls back to the OpenCode HTTP API when the ACP SDK Client export is unavailable", async () => {
+  test("uses the OpenCode session API and listens to lifecycle events from the global SSE stream", async () => {
     const requests: Array<{ url: string; method: string; body?: unknown }> = [];
+    let controller: ReadableStreamDefaultController<Uint8Array> | undefined;
+    const encoder = new TextEncoder();
 
     const fetchStub: typeof fetch = async (input, init) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
@@ -18,6 +20,23 @@ describe("createACPClient", () => {
           status: 200,
           headers: { "content-type": "application/json" }
         });
+      }
+
+      if (url.endsWith("/global/event")) {
+        return new Response(
+          new ReadableStream({
+            start(streamController) {
+              controller = streamController;
+              streamController.enqueue(
+                encoder.encode('data: {"payload":{"type":"server.connected","properties":{}}}\n\n')
+              );
+            }
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "text/event-stream" }
+          }
+        );
       }
 
       if (url.endsWith("/session") && method === "POST") {
@@ -42,6 +61,11 @@ describe("createACPClient", () => {
     };
 
     const client = await createACPClient("http://127.0.0.1:9000", fetchStub);
+    const paused: string[] = [];
+    const completed: string[] = [];
+
+    client.on?.("sessionPaused", ({ sessionId }) => paused.push(sessionId));
+    client.on?.("sessionCompleted", ({ sessionId }) => completed.push(sessionId));
 
     await client.connect();
 
@@ -53,9 +77,36 @@ describe("createACPClient", () => {
     await client.sendMessage(session.id, { text: "User approved. Proceed." });
     await client.stopSession?.(session.id);
 
+    controller?.enqueue(
+      encoder.encode(
+        [
+          'data: {"payload":{"type":"session.status","properties":{"sessionID":"ses_123","status":{"type":"busy"}}}}',
+          "",
+          'data: {"payload":{"type":"message.part.delta","properties":{"sessionID":"ses_123","messageID":"msg_1","partID":"prt_1","field":"text","delta":"Plan ready. [AWAITING_APPROVAL]"}}}',
+          "",
+          'data: {"payload":{"type":"session.status","properties":{"sessionID":"ses_123","status":{"type":"idle"}}}}',
+          "",
+          'data: {"payload":{"type":"session.status","properties":{"sessionID":"ses_123","status":{"type":"busy"}}}}',
+          "",
+          'data: {"payload":{"type":"message.part.delta","properties":{"sessionID":"ses_123","messageID":"msg_2","partID":"prt_2","field":"text","delta":"Implementation done."}}}',
+          "",
+          'data: {"payload":{"type":"session.status","properties":{"sessionID":"ses_123","status":{"type":"idle"}}}}',
+          "",
+        ].join("\n")
+      )
+    );
+    controller?.close();
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
     expect(requests).toEqual([
       {
         url: "http://127.0.0.1:9000/global/health",
+        method: "GET",
+        body: undefined
+      },
+      {
+        url: "http://127.0.0.1:9000/global/event",
         method: "GET",
         body: undefined
       },
@@ -85,6 +136,8 @@ describe("createACPClient", () => {
         body: undefined
       }
     ]);
+    expect(paused).toEqual(["ses_123"]);
+    expect(completed).toEqual(["ses_123"]);
   });
 });
 
@@ -135,6 +188,7 @@ describe("ACPSessionManager session events", () => {
     await manager.sendMessageToSession("ses_123", "User approved. Proceed.");
     listeners.get("sessionPaused")?.({ sessionId: "ses_123" });
     listeners.get("sessionCompleted")?.({ sessionId: "ses_123" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(events).toEqual([
       {
