@@ -210,9 +210,10 @@ The CLI does not implement daemon behavior itself. It translates shell arguments
 1. `src/index.ts` builds one `GitHubPoller` per configured repository.
 2. Each poller periodically calls GitHub and emits normalized issues.
 3. `DaemonCore` receives those issues and checks for any existing ACP session.
-4. If the issue is awaiting approval, `DaemonCore` asks the poller for the latest comment.
-5. `StateRouter` evaluates the issue state and returns a `RouteDecision`.
-6. `DaemonCore` executes that decision by calling `ACPSessionManager` and then updating GitHub labels through the correct poller.
+4. If the issue has an active session and is either awaiting approval or still processing, `DaemonCore` asks the poller for the latest comment.
+5. `DaemonCore` can transition a processing issue to the await-plan label when the latest agent comment ends with `[AWAITING_APPROVAL]`.
+6. `StateRouter` evaluates the issue state and returns a `RouteDecision`.
+7. `DaemonCore` executes that decision by calling `ACPSessionManager` and then updating GitHub labels through the correct poller.
 
 ### Daemon to OpenCode
 

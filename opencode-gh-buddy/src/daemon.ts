@@ -10,6 +10,12 @@ import type {
 } from "./models/types.ts";
 import { logger } from "./utils/logger.ts";
 
+const AWAITING_APPROVAL_MARKER = "[AWAITING_APPROVAL]";
+
+function isAwaitingApprovalComment(comment: string | null): boolean {
+  return comment?.trimEnd().endsWith(AWAITING_APPROVAL_MARKER) ?? false;
+}
+
 /** Coordinates pollers, routing, ACP sessions, and GitHub label transitions for all repositories. */
 export class DaemonCore {
   constructor(
@@ -79,8 +85,23 @@ export class DaemonCore {
     }
 
     const poller = this.getPoller(issue.repositoryKey);
-    const needsComment = issue.labels.includes(labels.awaitPlan) && activeSession;
+    const needsComment = activeSession && (
+      issue.labels.includes(labels.awaitPlan) ||
+      issue.labels.includes(labels.processing) ||
+      issue.labels.includes(labels.revising)
+    );
     const latestComment = needsComment ? await poller.getLatestComment(issue.number) : null;
+
+    if (
+      activeSession &&
+      !issue.labels.includes(labels.awaitPlan) &&
+      isAwaitingApprovalComment(latestComment)
+    ) {
+      const labelToRemove = issue.labels.includes(labels.revising) ? labels.revising : labels.processing;
+      await poller.updateIssueLabel(issue.number, labels.awaitPlan, labelToRemove);
+      return null;
+    }
+
     const decision = this.router.evaluateIssueState(issue, latestComment, activeSession);
 
     logger.debug("Processing issue", {

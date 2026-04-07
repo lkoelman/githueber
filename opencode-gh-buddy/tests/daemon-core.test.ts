@@ -261,6 +261,38 @@ describe("DaemonCore", () => {
     });
   });
 
+  test("moves processing issues to await-plan when the latest agent comment requests approval", async () => {
+    const frontendPoller = new PollerStub("frontend");
+    frontendPoller.latestComment = "Plan:\n1. Do the thing\n[AWAITING_APPROVAL]";
+
+    const acp = new ACPStub();
+    acp.sessions.set("frontend#42", {
+      sessionId: "frontend-session-42",
+      repositoryKey: "frontend",
+      repoOwner: "acme",
+      repoName: "frontend",
+      issueNumber: 42,
+      status: "RUNNING",
+      agentName: "github-worker-agent"
+    });
+
+    const daemon = new DaemonCore(
+      { frontend: frontendPoller, backend: new PollerStub("backend") },
+      new RouterStub({ action: "IGNORE" }),
+      acp,
+      config
+    );
+
+    await daemon.processIssue({
+      ...makeIssue("frontend", 42),
+      labels: ["agent-processing"]
+    });
+
+    expect(frontendPoller.updated).toEqual([
+      { issueNumber: 42, add: "await-plan", remove: "agent-processing" }
+    ]);
+  });
+
   test("stops polling and closes all ACP sessions during daemon shutdown", async () => {
     const frontendPoller = new PollerStub("frontend");
     const backendPoller = new PollerStub("backend");
