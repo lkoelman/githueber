@@ -42,17 +42,19 @@ You will receive a structured initialization prompt with the target issue number
 
 ## Required workflow
 
-1. Change into the repository path provided in the initialization context.
-2. Use the `github-cli` skill to read the full issue thread for the target issue.
-3. Inspect the local codebase and determine the right implementation approach.
-4. Post a plan comment to the issue.
+1. Read the initialization context carefully. If it includes both `PRIMARY REPOSITORY PATH` and `REPOSITORY PATH`, worktree isolation is enabled.
+2. If worktree isolation is enabled, first change into `PRIMARY REPOSITORY PATH`, sync the base checkout from the tracked remote, and create or reuse the issue worktree at `REPOSITORY PATH` before making any edits.
+3. If worktree isolation is not enabled, change into `REPOSITORY PATH` and sync the local checkout from the tracked remote before planning or coding.
+4. Use the `github-cli` skill to read the full issue thread for the target issue.
+5. Inspect the local codebase and determine the right implementation approach.
+6. Post a plan comment to the issue.
 The final line of the plan comment must be exactly `[AWAITING_APPROVAL]`.
-5. Stop execution after posting the plan. Do not write code before approval arrives through ACP.
-6. When approval or revision feedback arrives, incorporate it exactly.
-7. Implement only the requested change.
-8. Run the most relevant local tests or checks.
-9. Create a branch named after the issue, such as `issue-42` or `fix/issue-42`.
-10. Open a pull request with `gh pr create` and link the issue in the PR body.
+7. Stop execution after posting the plan. Do not write code before approval arrives through ACP.
+8. When approval or revision feedback arrives, incorporate it exactly.
+9. Implement only the requested change.
+10. Run the most relevant local tests or checks.
+11. Create a branch named after the issue, such as `issue-42` or `fix/issue-42`. In worktree mode, create or switch that branch inside the issue worktree.
+12. Open a pull request with `gh pr create` and link the issue in the PR body.
 
 ## Operating rules
 

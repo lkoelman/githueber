@@ -46,6 +46,8 @@ acp:
   endpoint: "http://127.0.0.1:9000"
 ipc:
   socket_path: "/tmp/opencode-gh-buddy.sock"
+isolation:
+  worktrees: "/tmp/gh-buddy-worktrees"
 `;
 
 describe("ConfigManager", () => {
@@ -76,6 +78,42 @@ describe("ConfigManager", () => {
     expect(config.polling.intervalMs).toBe(300000);
     expect(config.execution.approvalComment).toBe("/approve");
     expect(config.ipc.socketPath).toBe("/tmp/opencode-gh-buddy.sock");
+    expect(config.isolation.worktrees).toBe("/tmp/gh-buddy-worktrees");
+
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("treats false or null worktree config as disabled", () => {
+    const dir = mkdtempSync(join(tmpdir(), "gh-buddy-worktrees-disabled-"));
+    const falsePath = join(dir, "false.yaml");
+    const nullPath = join(dir, "null.yaml");
+
+    writeFileSync(
+      falsePath,
+      sampleConfig.replace('  worktrees: "/tmp/gh-buddy-worktrees"', "  worktrees: false")
+    );
+    writeFileSync(
+      nullPath,
+      sampleConfig.replace('  worktrees: "/tmp/gh-buddy-worktrees"', "  worktrees: null")
+    );
+
+    expect(new ConfigManager(falsePath).getConfig().isolation.worktrees).toBeNull();
+    expect(new ConfigManager(nullPath).getConfig().isolation.worktrees).toBeNull();
+
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("rejects relative worktree directories", () => {
+    const dir = mkdtempSync(join(tmpdir(), "gh-buddy-invalid-worktrees-"));
+    const configPath = join(dir, "config.yaml");
+    writeFileSync(
+      configPath,
+      sampleConfig.replace('  worktrees: "/tmp/gh-buddy-worktrees"', '  worktrees: "relative/worktrees"')
+    );
+
+    expect(() => new ConfigManager(configPath)).toThrow(
+      "Expected absolute path, false, or null for isolation.worktrees"
+    );
 
     rmSync(dir, { recursive: true, force: true });
   });

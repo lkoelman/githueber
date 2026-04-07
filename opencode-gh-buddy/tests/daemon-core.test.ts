@@ -62,6 +62,9 @@ const config: DaemonConfig = {
   },
   logging: {
     level: "info"
+  },
+  isolation: {
+    worktrees: null
   }
 };
 

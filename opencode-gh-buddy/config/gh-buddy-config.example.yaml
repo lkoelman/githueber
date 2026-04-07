@@ -51,5 +51,10 @@ acp:
 ipc:
   socket_path: "/tmp/opencode-gh-buddy.sock"
 
+isolation:
+  # Set to an absolute parent directory to create per-issue worktrees,
+  # or keep null/false to work directly in local_repo_path.
+  worktrees: null
+
 logging:
   log_level: "info"

@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { isAbsolute } from "node:path";
 import type { DaemonConfig, LabelConfig, RepositoryConfig } from "../models/types.ts";
 import { parseSimpleYaml } from "../utils/simpleYaml.ts";
 
@@ -48,6 +49,17 @@ function normalizeLabels(raw: ParsedConfig, keyPrefix: string): LabelConfig {
   };
 }
 
+/** Normalizes worktree isolation settings into a single nullable absolute path. */
+function normalizeWorktrees(value: unknown): string | null {
+  if (value === null || value === false || value === undefined) {
+    return null;
+  }
+  if (typeof value === "string" && value && isAbsolute(value)) {
+    return value;
+  }
+  throw new Error("Expected absolute path, false, or null for isolation.worktrees");
+}
+
 /** Builds a validated repository configuration from raw YAML input. */
 function normalizeRepository(key: string, raw: ParsedConfig): RepositoryConfig {
   const labels = asObject(raw.labels, `repositories.${key}.labels`);
@@ -82,6 +94,7 @@ export class ConfigManager {
     const acp = asObject(raw.acp, "acp");
     const ipc = asObject(raw.ipc ?? {}, "ipc");
     const logging = asObject(raw.logging ?? {}, "logging");
+    const isolation = asObject(raw.isolation ?? {}, "isolation");
 
     return {
       repositories: Object.fromEntries(
@@ -112,6 +125,9 @@ export class ConfigManager {
       },
       logging: {
         level: typeof logging.log_level === "string" && logging.log_level ? logging.log_level : "info"
+      },
+      isolation: {
+        worktrees: normalizeWorktrees(isolation.worktrees)
       }
     };
   }

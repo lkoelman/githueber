@@ -126,9 +126,9 @@ It uses repository-local labels and agent mappings from `DaemonConfig`.
 - Responsibility: synthesize the initialization prompt sent to OpenCode.
 - Implementation: [prompts.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/prompts.ts)
 - Main interface:
-  - `buildInitializationPrompt(issue, agentName)`
+  - `buildInitializationPrompt(issue, agentName, worktreeRoot)`
 
-The prompt builder converts a `GitHubIssue` into structured context, including repository key, owner/repo, checkout path, issue id, and label state.
+The prompt builder converts a `GitHubIssue` into structured context, including repository key, owner/repo, checkout path, issue id, and label state. When `isolation.worktrees` is configured, it resolves a deterministic per-issue worktree path and tells the agent to create or reuse that worktree before doing any coding work.
 
 ### 6. ACP Integration Layer
 
