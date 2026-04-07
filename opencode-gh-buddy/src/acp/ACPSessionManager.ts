@@ -1,4 +1,10 @@
-import type { ACPManagerLike, AgentSessionRecord, GitHubIssue, SessionStatus } from "../models/types.ts";
+import type {
+  ACPManagerLike,
+  AgentSessionRecord,
+  GitHubIssue,
+  SessionInteractionEvent,
+  SessionStatus
+} from "../models/types.ts";
 
 interface ACPCreateSessionRequest {
   agentDefinition: string;
@@ -135,6 +141,7 @@ export class ACPSessionManager implements ACPManagerLike {
   private readonly activeSessions = new Map<string, AgentSessionRecord>();
   private readonly pauseListeners = new Set<(sessionId: string) => Promise<void> | void>();
   private readonly completionListeners = new Set<(sessionId: string) => Promise<void> | void>();
+  private readonly sessionEventListeners = new Set<(event: SessionInteractionEvent) => void>();
 
   constructor(private readonly acpClient: ACPClientLike) {
     this.bindEvents();
@@ -144,6 +151,11 @@ export class ACPSessionManager implements ACPManagerLike {
   private bindEvents(): void {
     this.acpClient.on?.("sessionPaused", ({ sessionId }) => {
       this.updateStatus(sessionId, "PAUSED_AWAITING_APPROVAL");
+      this.emitSessionEvent({
+        direction: "INBOUND",
+        kind: "SESSION_PAUSED",
+        ...this.getSessionEventContext(sessionId)
+      });
       for (const listener of this.pauseListeners) {
         void listener(sessionId);
       }
@@ -151,6 +163,11 @@ export class ACPSessionManager implements ACPManagerLike {
 
     this.acpClient.on?.("sessionCompleted", ({ sessionId }) => {
       this.updateStatus(sessionId, "COMPLETED");
+      this.emitSessionEvent({
+        direction: "INBOUND",
+        kind: "SESSION_COMPLETED",
+        ...this.getSessionEventContext(sessionId)
+      });
       for (const listener of this.completionListeners) {
         void listener(sessionId);
       }
@@ -164,6 +181,39 @@ export class ACPSessionManager implements ACPManagerLike {
         this.activeSessions.set(key, { ...record, status });
       }
     }
+  }
+
+  /** Looks up a tracked session record by ACP session id. */
+  private findSessionById(sessionId: string): AgentSessionRecord | undefined {
+    return this.listSessions().find((session) => session.sessionId === sessionId);
+  }
+
+  /** Publishes one structured session interaction event to all subscribers. */
+  private emitSessionEvent(event: Omit<SessionInteractionEvent, "timestamp">): void {
+    const payload = {
+      timestamp: new Date().toISOString(),
+      ...event
+    } satisfies SessionInteractionEvent;
+
+    for (const listener of this.sessionEventListeners) {
+      listener(payload);
+    }
+  }
+
+  /** Builds event metadata from the tracked session record when available. */
+  private getSessionEventContext(
+    sessionId: string
+  ): Omit<SessionInteractionEvent, "timestamp" | "kind" | "direction" | "message"> {
+    const session = this.findSessionById(sessionId);
+
+    return {
+      sessionId,
+      repositoryKey: session?.repositoryKey,
+      repoOwner: session?.repoOwner,
+      repoName: session?.repoName,
+      issueNumber: session?.issueNumber,
+      agentName: session?.agentName
+    };
   }
 
   /** Verifies ACP connectivity before the daemon starts accepting work. */
@@ -184,6 +234,17 @@ export class ACPSessionManager implements ACPManagerLike {
   /** Creates a new ACP session for an issue and records the resulting runtime session id. */
   async startNewSession(issue: GitHubIssue, agentName: string, prompt: string): Promise<void> {
     const key = issueKey(issue.repositoryKey, issue.number);
+
+    this.emitSessionEvent({
+      direction: "CONTROL",
+      kind: "SESSION_STARTING",
+      repositoryKey: issue.repositoryKey,
+      repoOwner: issue.repoOwner,
+      repoName: issue.repoName,
+      issueNumber: issue.number,
+      agentName,
+      message: prompt
+    });
 
     this.activeSessions.set(key, {
       sessionId: `initializing-${issue.repositoryKey}-${issue.number}`,
@@ -209,11 +270,29 @@ export class ACPSessionManager implements ACPManagerLike {
       status: "RUNNING",
       agentName
     });
+
+    this.emitSessionEvent({
+      direction: "CONTROL",
+      kind: "SESSION_STARTED",
+      ...this.getSessionEventContext(session.id)
+    });
+    this.emitSessionEvent({
+      direction: "OUTBOUND",
+      kind: "PROMPT_SENT",
+      message: prompt,
+      ...this.getSessionEventContext(session.id)
+    });
   }
 
   /** Sends a follow-up prompt to an existing ACP session, typically after human feedback. */
   async sendMessageToSession(sessionId: string, message: string): Promise<void> {
     await this.acpClient.sendMessage(sessionId, { text: message });
+    this.emitSessionEvent({
+      direction: "OUTBOUND",
+      kind: "PROMPT_SENT",
+      message,
+      ...this.getSessionEventContext(sessionId)
+    });
   }
 
   /** Stops a tracked session and removes its repository-scoped mapping from memory. */
@@ -237,5 +316,13 @@ export class ACPSessionManager implements ACPManagerLike {
   /** Registers a callback for ACP completion events so labels can be transitioned. */
   onSessionCompleted(callback: (sessionId: string) => Promise<void> | void): void {
     this.completionListeners.add(callback);
+  }
+
+  /** Registers a callback for the ACP interaction stream and returns an unsubscribe handle. */
+  onSessionEvent(callback: (event: SessionInteractionEvent) => void): () => void {
+    this.sessionEventListeners.add(callback);
+    return () => {
+      this.sessionEventListeners.delete(callback);
+    };
   }
 }

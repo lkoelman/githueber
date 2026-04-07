@@ -83,6 +83,7 @@ opencode acp --port 9000
 ```bash
 # after global install using `bun link`:
 gbr start
+gbr start --echo
 
 # or in development mode
 bun run src/index.ts
@@ -103,6 +104,7 @@ Run commands from the package directory:
 
 ```bash
 gbr start
+gbr start --echo
 gbr --verbose start
 gbr sessions
 gbr poll
@@ -115,6 +117,7 @@ The `gbr` command can be replaced by `bun run src/cli/index/ts` during developme
 Available commands:
 
 - `start`: start the daemon service directly from the CLI
+  - `--echo`: print structured ACP session interaction events to stdout as sessions start, resume, pause, and complete
 - `sessions`: list active ACP sessions, including repository key and owner/repo identity
 - `poll`: trigger an immediate GitHub poll cycle across all configured repositories and print the fetched and dispatched issues
 - `stop <session-id>`: stop a tracked ACP session by session id
@@ -151,6 +154,8 @@ repositories:
 ```
 
 Each repository is polled independently. Active sessions are tracked by repository key plus issue number, so `frontend#42` and `backend#42` remain distinct work items.
+
+The ACP integration also emits a structured session interaction stream inside the daemon. `gbr start --echo` attaches a console sink to that stream today, and the same interface is intended to back a future `gbr follow <session-id>` IPC command.
 
 ## systemd
 

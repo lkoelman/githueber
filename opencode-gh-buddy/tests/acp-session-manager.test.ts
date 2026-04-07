@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { createACPClient } from "../src/acp/ACPSessionManager.ts";
+import { ACPSessionManager, createACPClient } from "../src/acp/ACPSessionManager.ts";
+import type { GitHubIssue } from "../src/models/types.ts";
 
 describe("createACPClient", () => {
   test("falls back to the OpenCode HTTP API when the ACP SDK Client export is unavailable", async () => {
@@ -82,6 +83,113 @@ describe("createACPClient", () => {
         url: "http://127.0.0.1:9000/session/ses_123/abort",
         method: "POST",
         body: undefined
+      }
+    ]);
+  });
+});
+
+describe("ACPSessionManager session events", () => {
+  test("publishes structured events for session startup, prompts, and lifecycle updates", async () => {
+    const listeners = new Map<string, (payload: { sessionId: string }) => void>();
+    const events: Array<Record<string, unknown>> = [];
+
+    const manager = new ACPSessionManager({
+      async connect(): Promise<void> {},
+      async createSession(): Promise<{ id: string }> {
+        return { id: "ses_123" };
+      },
+      async sendMessage(): Promise<void> {},
+      on(eventName, callback) {
+        listeners.set(eventName, callback);
+      }
+    });
+
+    manager.onSessionEvent((event) => {
+      events.push({
+        kind: event.kind,
+        direction: event.direction,
+        sessionId: event.sessionId,
+        repositoryKey: event.repositoryKey,
+        issueNumber: event.issueNumber,
+        agentName: event.agentName,
+        message: event.message
+      });
+    });
+
+    const issue: GitHubIssue = {
+      repositoryKey: "frontend",
+      repoOwner: "acme",
+      repoName: "web",
+      localRepoPath: "/repos/web",
+      id: 42,
+      number: 42,
+      title: "Fix bug",
+      body: "Details",
+      labels: ["agent-queue"],
+      state: "open",
+      updatedAt: "2026-04-07T00:00:00Z",
+      comments: []
+    };
+
+    await manager.startNewSession(issue, "github-worker-agent", "Start working on issue 42.");
+    await manager.sendMessageToSession("ses_123", "User approved. Proceed.");
+    listeners.get("sessionPaused")?.({ sessionId: "ses_123" });
+    listeners.get("sessionCompleted")?.({ sessionId: "ses_123" });
+
+    expect(events).toEqual([
+      {
+        kind: "SESSION_STARTING",
+        direction: "CONTROL",
+        sessionId: undefined,
+        repositoryKey: "frontend",
+        issueNumber: 42,
+        agentName: "github-worker-agent",
+        message: "Start working on issue 42."
+      },
+      {
+        kind: "SESSION_STARTED",
+        direction: "CONTROL",
+        sessionId: "ses_123",
+        repositoryKey: "frontend",
+        issueNumber: 42,
+        agentName: "github-worker-agent",
+        message: undefined
+      },
+      {
+        kind: "PROMPT_SENT",
+        direction: "OUTBOUND",
+        sessionId: "ses_123",
+        repositoryKey: "frontend",
+        issueNumber: 42,
+        agentName: "github-worker-agent",
+        message: "Start working on issue 42."
+      },
+      {
+        kind: "PROMPT_SENT",
+        direction: "OUTBOUND",
+        sessionId: "ses_123",
+        repositoryKey: "frontend",
+        issueNumber: 42,
+        agentName: "github-worker-agent",
+        message: "User approved. Proceed."
+      },
+      {
+        kind: "SESSION_PAUSED",
+        direction: "INBOUND",
+        sessionId: "ses_123",
+        repositoryKey: "frontend",
+        issueNumber: 42,
+        agentName: "github-worker-agent",
+        message: undefined
+      },
+      {
+        kind: "SESSION_COMPLETED",
+        direction: "INBOUND",
+        sessionId: "ses_123",
+        repositoryKey: "frontend",
+        issueNumber: 42,
+        agentName: "github-worker-agent",
+        message: undefined
       }
     ]);
   });

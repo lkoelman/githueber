@@ -1,5 +1,6 @@
 import { ConfigManager } from "./config/ConfigManager.ts";
 import { ACPSessionManager, createACPClient } from "./acp/ACPSessionManager.ts";
+import { createSessionEventEchoListener } from "./acp/sessionEvents.ts";
 import { DaemonCore } from "./daemon.ts";
 import { GitHubPoller, createOctokit, resolveGitHubToken } from "./github/GitHubPoller.ts";
 import { IPCServer } from "./ipc/IPCServer.ts";
@@ -21,6 +22,11 @@ interface ShutdownHandlerDeps {
   ipc: { stop(): void };
   logger: ShutdownLoggerLike;
   processRef: Pick<ShutdownProcessLike, "exit">;
+}
+
+export interface StartDaemonOptions {
+  echoSessionEvents?: boolean;
+  sessionEventWriter?: (chunk: string) => void;
 }
 
 /** Builds the shared shutdown routine used by the daemon's signal handlers. */
@@ -68,7 +74,7 @@ export function registerShutdownHandlers(
 }
 
 /** Builds the runtime graph from config and starts the daemon plus its IPC control socket. */
-export async function startDaemon(): Promise<void> {
+export async function startDaemon(options: StartDaemonOptions = {}): Promise<void> {
   const configPath = process.env.GH_BUDDY_CONFIG ?? "./config/gh-buddy-config.yaml";
   const configManager = new ConfigManager(configPath);
   const config = configManager.getConfig();
@@ -99,6 +105,15 @@ export async function startDaemon(): Promise<void> {
   const router = new StateRouter(config);
   const acpClient = await createACPClient(config.acp.endpoint);
   const acpManager = new ACPSessionManager(acpClient);
+
+  if (options.echoSessionEvents) {
+    acpManager.onSessionEvent(
+      createSessionEventEchoListener(
+        options.sessionEventWriter ?? ((chunk) => process.stdout.write(chunk))
+      )
+    );
+  }
+
   const daemon = new DaemonCore(pollers, router, acpManager, config);
   const ipc = new IPCServer(config.ipc.socketPath, {
     getActiveSessions: () => daemon.getActiveSessions(),

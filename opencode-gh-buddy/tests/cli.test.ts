@@ -6,6 +6,7 @@ describe("parseCliArgs", () => {
   test("builds start daemon command", () => {
     expect(parseCliArgs(["start"])).toEqual({
       kind: "START_DAEMON",
+      echo: false,
       verbose: false
     });
   });
@@ -13,7 +14,24 @@ describe("parseCliArgs", () => {
   test("accepts verbose flag before the command", () => {
     expect(parseCliArgs(["--verbose", "start"])).toEqual({
       kind: "START_DAEMON",
+      echo: false,
       verbose: true
+    });
+  });
+
+  test("builds start daemon command with echo enabled", () => {
+    expect(parseCliArgs(["start", "--echo"])).toEqual({
+      kind: "START_DAEMON",
+      echo: true,
+      verbose: false
+    });
+  });
+
+  test("accepts echo flag before the command", () => {
+    expect(parseCliArgs(["--echo", "start"])).toEqual({
+      kind: "START_DAEMON",
+      echo: true,
+      verbose: false
     });
   });
 
@@ -70,6 +88,12 @@ describe("parseCliArgs", () => {
         payload: {}
       }
     });
+  });
+
+  test("rejects echo outside the start command", () => {
+    expect(() => parseCliArgs(["sessions", "--echo"])).toThrow(
+      "--echo can only be used with the start command"
+    );
   });
 });
 

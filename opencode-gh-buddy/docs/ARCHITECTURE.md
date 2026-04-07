@@ -143,8 +143,10 @@ The prompt builder converts a `GitHubIssue` into structured context, including r
   - `stopSession(sessionId)`
   - `onSessionPaused(callback)`
   - `onSessionCompleted(callback)`
+  - `onSessionEvent(callback)`
 
 `ACPSessionManager` is the daemon's bridge to OpenCode. It stores active sessions keyed by repository plus issue number so identical issue numbers in different repositories remain isolated.
+It also emits a structured session interaction stream for ACP control events and prompt dispatches. That stream is intentionally transport-agnostic: `gbr start --echo` attaches a stdout sink today, and a future IPC-backed `gbr follow <session-id>` command can subscribe to the same source without changing ACP orchestration logic.
 
 ### 7. Daemon Coordinator
 
@@ -196,10 +198,10 @@ Supported commands are:
   - [src/cli/index.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/cli/index.ts)
   - [src/cli/args.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/cli/args.ts)
 - Main interfaces:
-  - `parseCliArgs(argv) => IPCRequest`
-  - CLI commands: `sessions`, `poll`, `stop <sessionId>`, `config <key> <value>`
+  - `parseCliArgs(argv) => CliCommand`
+  - CLI commands: `start [--echo]`, `sessions`, `poll`, `stop <sessionId>`, `config <key> <value>`
 
-The CLI does not implement daemon behavior itself. It translates shell arguments into an `IPCRequest`, opens a Unix socket connection to the daemon, sends one JSON message, and prints the JSON response or status message. For `poll`, the CLI renders a readable repository-by-repository summary of fetched issues and dispatches.
+The CLI does not implement daemon behavior itself. It translates shell arguments into an `IPCRequest`, opens a Unix socket connection to the daemon, sends one JSON message, and prints the JSON response or status message. For `poll`, the CLI renders a readable repository-by-repository summary of fetched issues and dispatches. For `start --echo`, it starts the daemon in-process and subscribes a terminal sink to the ACP session interaction stream.
 
 ## Component Interaction
 
@@ -219,6 +221,7 @@ The CLI does not implement daemon behavior itself. It translates shell arguments
 3. `ACPSessionManager` creates or resumes a session through ACP.
 4. OpenCode agents perform the non-deterministic work: read issues, plan, code, test, and create PRs.
 5. ACP pause or completion events flow back into `DaemonCore`, which applies label changes in GitHub.
+6. Optional session-event subscribers, such as the `--echo` console sink, observe the same ACP interaction stream without affecting daemon control flow.
 
 ### CLI to Daemon through IPC
 

@@ -8,7 +8,7 @@ import { startDaemon } from "../startDaemon.ts";
 function formatUsage(): string {
   return [
     "Usage:",
-    "  gbr [--verbose|-v] start",
+    "  gbr [--verbose|-v] [--echo] start",
     "  gbr [--verbose|-v] sessions",
     "  gbr [--verbose|-v] stop <sessionId>",
     "  gbr [--verbose|-v] poll",
@@ -94,7 +94,7 @@ async function main(): Promise<void> {
     const command = parseCliArgs(process.argv.slice(2));
 
     if (command.kind === "START_DAEMON") {
-      await startDaemon();
+      await startDaemon({ echoSessionEvents: command.echo });
       return;
     }
 

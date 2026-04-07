@@ -142,6 +142,9 @@ class ACPStub implements ACPManagerLike {
   }
   onSessionPaused(): void {}
   onSessionCompleted(): void {}
+  onSessionEvent(): () => void {
+    return () => {};
+  }
 }
 
 class RouterStub implements RouterLike {

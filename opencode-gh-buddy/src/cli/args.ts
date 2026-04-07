@@ -1,19 +1,24 @@
 import type { IPCRequest } from "../models/types.ts";
 
 export type CliCommand =
-  | { kind: "START_DAEMON"; verbose: boolean }
+  | { kind: "START_DAEMON"; verbose: boolean; echo: boolean }
   | { kind: "IPC"; verbose: boolean; request: IPCRequest };
 
 /** Parses shell arguments into either a daemon-start action or a concrete IPC request. */
 export function parseCliArgs(argv: string[]): CliCommand {
   const verbose = argv.includes("--verbose") || argv.includes("-v");
-  const args = argv.filter((arg) => arg !== "--verbose" && arg !== "-v");
+  const echo = argv.includes("--echo");
+  const args = argv.filter((arg) => arg !== "--verbose" && arg !== "-v" && arg !== "--echo");
 
   const [command, ...rest] = args;
 
+  if (echo && command !== "start") {
+    throw new Error("--echo can only be used with the start command");
+  }
+
   switch (command) {
     case "start":
-      return { kind: "START_DAEMON", verbose };
+      return { kind: "START_DAEMON", verbose, echo };
     case "sessions":
       return { kind: "IPC", verbose, request: { command: "LIST_SESSIONS", payload: {} } };
     case "stop":

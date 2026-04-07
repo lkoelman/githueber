@@ -6,6 +6,15 @@ export type SessionStatus =
   | "PAUSED_AWAITING_APPROVAL"
   | "COMPLETED";
 
+export type SessionInteractionDirection = "CONTROL" | "OUTBOUND" | "INBOUND";
+
+export type SessionInteractionKind =
+  | "SESSION_STARTING"
+  | "SESSION_STARTED"
+  | "PROMPT_SENT"
+  | "SESSION_PAUSED"
+  | "SESSION_COMPLETED";
+
 export type TaskAction =
   | "START_SESSION"
   | "RESUME_APPROVED"
@@ -59,6 +68,16 @@ export interface AgentSessionRecord extends RepositoryIdentity {
   issueNumber: number;
   status: SessionStatus;
   agentName: string;
+}
+
+export interface SessionInteractionEvent extends Partial<RepositoryIdentity> {
+  timestamp: string;
+  direction: SessionInteractionDirection;
+  kind: SessionInteractionKind;
+  sessionId?: string;
+  issueNumber?: number;
+  agentName?: string;
+  message?: string;
 }
 
 export interface ManualPollIssueSummary {
@@ -142,6 +161,7 @@ export interface ACPManagerLike {
   stopSession(sessionId: string): Promise<void>;
   onSessionPaused(callback: (sessionId: string) => Promise<void> | void): void;
   onSessionCompleted(callback: (sessionId: string) => Promise<void> | void): void;
+  onSessionEvent(callback: (event: SessionInteractionEvent) => void): () => void;
 }
 
 export interface RouterLike {
