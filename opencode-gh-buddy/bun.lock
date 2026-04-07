@@ -5,13 +5,13 @@
     "": {
       "name": "opencode-gh-buddy",
       "dependencies": {
-        "@agentclientprotocol/sdk": "^0.6.0",
-        "@octokit/rest": "^22.0.0",
+        "@agentclientprotocol/sdk": "^0.18.1",
+        "@octokit/rest": "^22.0.1",
       },
     },
   },
   "packages": {
-    "@agentclientprotocol/sdk": ["@agentclientprotocol/sdk@0.6.0", "", { "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" } }, "sha512-Qsa4jFecdppgyBHzcAFkxgjhIEBD1usgTQ0oWQdkQFUJmnWJ9Gm9q7qF2L/FSorrES4/1C/SF7jsyVFp1q4k4g=="],
+    "@agentclientprotocol/sdk": ["@agentclientprotocol/sdk@0.18.1", "", { "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" } }, "sha512-5TS5Jb1PuNUjadzLxV8hh2tgSsBuNXWc4XRrW3/pNe01bFH82mY/xuVQKr+vmI9swTxxPaEsm1idVIudedoCaA=="],
 
     "@octokit/auth-token": ["@octokit/auth-token@6.0.0", "", {}, "sha512-P4YJBPdPSpWTQ1NU4XYdvHvXJJDxM6YwpS0FZHRgP7YFkdVxsWcpWGy/NVqlAA7PcPCnMacXlRm1y2PFZRWL/w=="],
 

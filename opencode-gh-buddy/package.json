@@ -14,7 +14,7 @@
     "build:all": "bun run build && bun run build:cli"
   },
   "dependencies": {
-    "@agentclientprotocol/sdk": "^0.6.0",
-    "@octokit/rest": "^22.0.0"
+    "@agentclientprotocol/sdk": "^0.18.1",
+    "@octokit/rest": "^22.0.1"
   }
 }
