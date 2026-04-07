@@ -77,7 +77,7 @@ function sessionMessageKey(sessionId: string, messageId: string): string {
 }
 
 /** Implements the daemon-facing ACP client contract over OpenCode's session HTTP API plus SSE events. */
-class OpenCodeBidirectionalACPClient implements ACPClientLike {
+class OpenCodeHttpSseClient implements ACPClientLike {
   private readonly listeners = new Map<string, Set<(payload: { sessionId: string }) => void>>();
   private readonly assistantMessageText = new Map<string, string>();
   private readonly sessionTurnMessages = new Map<string, Set<string>>();
@@ -367,7 +367,7 @@ export async function createACPClient(
   endpoint: string,
   fetchImpl: FetchLike = fetch
 ): Promise<ACPClientLike> {
-  return new OpenCodeBidirectionalACPClient(endpoint, fetchImpl);
+  return new OpenCodeHttpSseClient(endpoint, fetchImpl);
 }
 
 /** Produces a repository-scoped issue key so identical issue numbers cannot collide. */
