@@ -2,6 +2,10 @@ import type { SessionInteractionEvent } from "../models/types.ts";
 
 type SessionEventWriter = (chunk: string) => void;
 
+const ANSI_RESET = "\x1b[0m";
+const ANSI_BLUE = "\x1b[34m";
+const ANSI_GREEN = "\x1b[32m";
+
 function formatScope(event: SessionInteractionEvent): string {
   const segments = [];
 
@@ -25,11 +29,23 @@ export function formatSessionInteractionEvent(event: SessionInteractionEvent): s
   return `${event.timestamp} ${event.direction} ${event.kind}${formatScope(event)}${formatMessage(event)}`;
 }
 
+function colorizeSessionInteractionEvent(line: string, event: SessionInteractionEvent): string {
+  if (event.direction === "OUTBOUND" && event.kind === "PROMPT_SENT") {
+    return `${ANSI_BLUE}${line}${ANSI_RESET}`;
+  }
+
+  if (event.direction === "INBOUND") {
+    return `${ANSI_GREEN}${line}${ANSI_RESET}`;
+  }
+
+  return line;
+}
+
 /** Builds a console-oriented sink for session interaction events. */
 export function createSessionEventEchoListener(
   write: SessionEventWriter = (chunk) => process.stdout.write(chunk)
 ): (event: SessionInteractionEvent) => void {
   return (event) => {
-    write(`${formatSessionInteractionEvent(event)}\n`);
+    write(`${colorizeSessionInteractionEvent(formatSessionInteractionEvent(event), event)}\n`);
   };
 }
