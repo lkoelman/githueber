@@ -22,7 +22,11 @@ TypeScript/Bun daemon package that bridges GitHub issue state to OpenCode agents
 
 ```bash
 cd agents-config/opencode-gh-buddy
+
+# install dependencies
 bun install
+
+# create config
 cp config/gh-buddy-config.example.yaml config/gh-buddy-config.yaml
 ```
 
@@ -50,27 +54,6 @@ export GH_BUDDY_CONFIG=/path/to/gh-buddy-config.yaml
 
 If `GITHUB_TOKEN` is unset or cannot access a configured repository, the daemon falls back to `gh auth token`.
 
-## Usage
-
-Start the OpenCode ACP server in another terminal:
-
-```bash
-opencode acp --port 9000
-```
-
-Run the daemon in development:
-
-```bash
-cd agents-config/opencode-gh-buddy
-bun run src/index.ts
-```
-
-Or after linking the CLI:
-
-```bash
-gbr start
-```
-
 Build the daemon and CLI:
 
 ```bash
@@ -83,11 +66,28 @@ Install the CLI (`gbr` command) globally:
 bun link
 ```
 
-Run the bundled daemon:
+## Usage
+
+1. Start the OpenCode ACP server in its own shell:
 
 ```bash
+opencode acp --port 9000
+```
+
+2. Start the Githueber daemon service:
+
+```bash
+# after global install using `bun link`:
+gbr start
+
+# or in development mode
+bun run src/index.ts
+
+# or after a local build:
 bun run dist/index.js
 ```
+
+3. Make changes on Github and wait for `polling.intervalMs` or run `gbr poll`
 
 ## CLI
 
@@ -96,20 +96,15 @@ The CLI talks to the daemon over a Unix domain socket. The default socket path i
 Run commands from the package directory:
 
 ```bash
-bun run src/cli/index.ts start
-bun run src/cli/index.ts --verbose start
-bun run src/cli/index.ts sessions
-bun run src/cli/index.ts poll
-bun run src/cli/index.ts stop <session-id>
-bun run src/cli/index.ts config polling.intervalMs 60000
+gbr start
+gbr --verbose start
+gbr sessions
+gbr poll
+gbr stop <session-id>
+gbr config polling.intervalMs 60000
 ```
 
-After building, you can also use:
-
-```bash
-bun run dist/cli.js start
-bun run dist/cli.js sessions
-```
+The `gbr` command can be replaced by `bun run src/cli/index/ts` during development, or by `bun run dist/cli.js` after building.
 
 Available commands:
 
