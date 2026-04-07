@@ -114,7 +114,7 @@ gbr stop <session-id>
 gbr config polling.intervalMs 60000
 ```
 
-The `gbr` command can be replaced by `bun run src/cli/index/ts` during development, or by `bun run dist/cli.js` after building.
+The `gbr` command can be replaced by `bun run src/cli/index.ts` during development, or by `bun run dist/cli.js` after building.
 
 Available commands:
 

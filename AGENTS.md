@@ -64,8 +64,11 @@
 - Trust framework guarantees
 - Don't use feature flags or backwards-compatibility shims when you can just change the code
 
-## Git Conventions
+### Read Documentation
 
+Before making changes, read ARCHITECTURE.md and README.md files for the components you are working on.
+
+## Git Conventions
 
 **Commit workflow:**
 - Agent proposes commit messages; user retains final edit/approval
