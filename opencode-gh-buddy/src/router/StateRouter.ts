@@ -50,7 +50,7 @@ export class StateRouter {
     return {
       action: "START_SESSION",
       agentName: matchedAgent,
-      promptContext: buildInitializationPrompt(issue, matchedAgent)
+      promptContext: buildInitializationPrompt(issue, matchedAgent, this.config.isolation.worktrees)
     };
   }
 }

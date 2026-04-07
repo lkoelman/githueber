@@ -8,6 +8,7 @@ TypeScript/Bun daemon package that bridges GitHub issue state to OpenCode agents
 - GitHub CLI authenticated with `gh auth login`
 - A running OpenCode server started with `opencode acp`
 - One local checkout per configured repository
+- Optional absolute parent directory for issue worktrees when `isolation.worktrees` is enabled
 - `GITHUB_TOKEN` available to the daemon, or `gh auth token` available as fallback
 
 ## What it provides
@@ -44,6 +45,7 @@ Set the shared daemon config:
 - `polling.interval_ms`
 - `acp.endpoint`
 - `ipc.socket_path`
+- `isolation.worktrees`
 
 Export the daemon environment:
 
@@ -151,9 +153,14 @@ repositories:
     agent_mapping:
       bug-fix: github-worker-agent
       epic: github-orchestrator-agent
+
+isolation:
+  worktrees: /repos/worktrees
 ```
 
 Each repository is polled independently. Active sessions are tracked by repository key plus issue number, so `frontend#42` and `backend#42` remain distinct work items.
+
+When `isolation.worktrees` is set to an absolute directory, prompt generation switches issue execution into a deterministic per-issue worktree path like `/repos/worktrees/your-org-frontend-repo-issue-42`. Set it to `null` or `false` to keep working directly in `local_repo_path`.
 
 The ACP integration also emits a structured session interaction stream inside the daemon. `gbr start --echo` attaches a console sink to that stream today, and the same interface is intended to back a future `gbr follow <session-id>` IPC command.
 

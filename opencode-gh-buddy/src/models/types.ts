@@ -134,6 +134,10 @@ export interface LoggingConfig {
   level: string;
 }
 
+export interface IsolationConfig {
+  worktrees: string | null;
+}
+
 export interface DaemonConfig {
   repositories: Record<string, RepositoryConfig>;
   execution: ExecutionConfig;
@@ -141,6 +145,7 @@ export interface DaemonConfig {
   acp: ACPConfig;
   ipc: IPCConfig;
   logging: LoggingConfig;
+  isolation: IsolationConfig;
 }
 
 export interface GitHubPollerLike {

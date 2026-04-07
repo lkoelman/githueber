@@ -40,6 +40,9 @@ const config: DaemonConfig = {
       }
     }
   },
+  isolation: {
+    worktrees: null
+  },
   execution: {
     autoApprove: false,
     concurrency: 1,
@@ -87,6 +90,23 @@ describe("StateRouter", () => {
     expect(decision.promptContext).toContain("REPOSITORY KEY: frontend");
     expect(decision.promptContext).toContain("REPOSITORY: acme/frontend");
     expect(decision.promptContext).toContain("REPOSITORY PATH: /repos/frontend");
+  });
+
+  test("uses a deterministic issue worktree path when worktrees are enabled", () => {
+    const router = new StateRouter({
+      ...config,
+      isolation: {
+        worktrees: "/tmp/gh-buddy-worktrees"
+      }
+    });
+    const decision = router.evaluateIssueState(issue);
+
+    expect(decision.action).toBe("START_SESSION");
+    expect(decision.promptContext).toContain("PRIMARY REPOSITORY PATH: /repos/frontend");
+    expect(decision.promptContext).toContain(
+      "REPOSITORY PATH: /tmp/gh-buddy-worktrees/acme-frontend-issue-42"
+    );
+    expect(decision.promptContext).toContain("Create or reuse the git worktree");
   });
 
   test("routes epic issues to the orchestrator agent within the same repository", () => {
