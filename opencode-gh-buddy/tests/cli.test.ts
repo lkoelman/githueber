@@ -7,6 +7,7 @@ describe("parseCliArgs", () => {
     expect(parseCliArgs(["start"])).toEqual({
       kind: "START_DAEMON",
       echo: false,
+      harness: undefined,
       verbose: false
     });
   });
@@ -15,6 +16,7 @@ describe("parseCliArgs", () => {
     expect(parseCliArgs(["--verbose", "start"])).toEqual({
       kind: "START_DAEMON",
       echo: false,
+      harness: undefined,
       verbose: true
     });
   });
@@ -23,6 +25,7 @@ describe("parseCliArgs", () => {
     expect(parseCliArgs(["start", "--echo"])).toEqual({
       kind: "START_DAEMON",
       echo: true,
+      harness: undefined,
       verbose: false
     });
   });
@@ -31,6 +34,25 @@ describe("parseCliArgs", () => {
     expect(parseCliArgs(["--echo", "start"])).toEqual({
       kind: "START_DAEMON",
       echo: true,
+      harness: undefined,
+      verbose: false
+    });
+  });
+
+  test("accepts a harness override for daemon startup", () => {
+    expect(parseCliArgs(["start", "--harness", "codex"])).toEqual({
+      kind: "START_DAEMON",
+      echo: false,
+      harness: "codex",
+      verbose: false
+    });
+  });
+
+  test("accepts a harness override before the command", () => {
+    expect(parseCliArgs(["--harness", "opencode", "start"])).toEqual({
+      kind: "START_DAEMON",
+      echo: false,
+      harness: "opencode",
       verbose: false
     });
   });
@@ -93,6 +115,18 @@ describe("parseCliArgs", () => {
   test("rejects echo outside the start command", () => {
     expect(() => parseCliArgs(["sessions", "--echo"])).toThrow(
       "--echo can only be used with the start command"
+    );
+  });
+
+  test("rejects harness outside the start command", () => {
+    expect(() => parseCliArgs(["sessions", "--harness", "codex"])).toThrow(
+      "--harness can only be used with the start command"
+    );
+  });
+
+  test("rejects unknown harness names", () => {
+    expect(() => parseCliArgs(["start", "--harness", "other"])).toThrow(
+      "Unsupported harness: other. Supported harnesses: opencode, codex"
     );
   });
 });

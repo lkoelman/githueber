@@ -1,6 +1,6 @@
 # Architecture
 
-`opencode-gh-buddy` is a Bun/TypeScript daemon that acts as the deterministic control plane between GitHub and OpenCode. GitHub is the system of record for work state and human approval, while OpenCode performs the non-deterministic agent work through ACP. The daemon polls GitHub, decides what should happen next, starts or resumes agent sessions, and exposes local operational control through a Unix domain socket and CLI.
+`opencode-gh-buddy` is a Bun/TypeScript daemon that acts as the deterministic control plane between GitHub and coding harnesses. GitHub is the system of record for work state and human approval, while the selected harness performs the non-deterministic agent work. The daemon polls GitHub, decides what should happen next, starts or resumes agent sessions, and exposes local operational control through a Unix domain socket and CLI.
 
 ## System Diagram
 
@@ -32,21 +32,22 @@
                    |                 | decisions        |
                    |  +--------------v---------------+  |
                    |  | DaemonCore                   |  |
-                   |  | coordinates pollers + ACP    |  |
+                   |  | coordinates pollers +        |  |
+                   |  | harness sessions             |  |
                    |  +------+---------------+-------+  |
                    |         |               |          |
-                   |         | ACP calls     | IPC      |
+                   |         | Harness calls | IPC     |
                    |  +------v------+   +----v-------+  |
-                   |  | ACPSession  |   | IPCServer  |  |
-                   |  | Manager     |   | unix socket|  |
+                   |  | Session     |   | IPCServer  |  |
+                   |  | Managers    |   | unix socket|  |
                    |  +------+------+   +----+-------+  |
                    +---------|---------------|----------+
                              |               ^
                              |               |
                              v               |
                   +-------------------+      |
-                  | OpenCode ACP      |      |
-                  | worker/orch agent |      |
+                  | OpenCode / Codex  |      |
+                  | harness runtime   |      |
                   +---------+---------+      |
                             |                |
                             v                |
@@ -130,12 +131,17 @@ It uses repository-local labels and agent mappings from `DaemonConfig`.
 
 The prompt builder converts a `GitHubIssue` into structured context, including repository key, owner/repo, checkout path, issue id, and label state. When `isolation.worktrees` is configured, it resolves a deterministic per-issue worktree path and tells the agent to create or reuse that worktree before doing any coding work.
 
-### 6. ACP Integration Layer
+### 6. Harness Integration Layer
 
-- Responsibility: create and manage OpenCode sessions through a bidirectional client built on the OpenCode session API and global SSE event stream.
-- Implementation: [ACPSessionManager.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/acp/ACPSessionManager.ts)
+- Responsibility: create and manage coding sessions through harness-specific clients behind a shared daemon-facing session manager contract.
+- Implementation:
+  - [HarnessSessionManager.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/harness/HarnessSessionManager.ts)
+  - [MultiHarnessSessionManager.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/harness/MultiHarnessSessionManager.ts)
+  - [ACPSessionManager.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/acp/ACPSessionManager.ts)
+  - [CodexHarnessClient.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/codex/CodexHarnessClient.ts)
 - Main interfaces:
-  - `createACPClient(endpoint, fetchImpl?)`
+  - `createOpenCodeHarnessClient(endpoint, fetchImpl?)`
+  - `createCodexHarnessClient(config, spawnImpl?)`
   - `initialize()`
   - `getSessionForIssue(repositoryKey, issueNumber)`
   - `startNewSession(issue, agentName, prompt)`
@@ -145,12 +151,13 @@ The prompt builder converts a `GitHubIssue` into structured context, including r
   - `onSessionCompleted(callback)`
   - `onSessionEvent(callback)`
 
-`ACPSessionManager` is the daemon's bridge to OpenCode. Its client opens `/global/event` once, translates session turn updates into daemon pause/completion lifecycle events, and stores active sessions keyed by repository plus issue number so identical issue numbers in different repositories remain isolated.
-It also emits a structured session interaction stream for ACP control events and prompt dispatches. That stream is intentionally transport-agnostic: `gbr start --echo` attaches a stdout sink today, and a future IPC-backed `gbr follow <session-id>` command can subscribe to the same source without changing ACP orchestration logic.
+`HarnessSessionManager` stores active sessions keyed by repository plus issue number so identical issue numbers in different repositories remain isolated. `MultiHarnessSessionManager` composes one harness-specific manager per required backend and routes repository-scoped issues to the correct one at runtime.
+
+The OpenCode harness client opens `/global/event`, translates session turn updates into daemon pause/completion lifecycle events, and reuses the previous OpenCode transport. The Codex harness client launches `codex app-server` over stdio, performs the initialize handshake, starts a thread and turn, and maps app-server approval or user-input states into the daemon's normalized pause/completion lifecycle.
 
 ### 7. Daemon Coordinator
 
-- Responsibility: wire pollers, router, ACP manager, and label updates into one control loop.
+- Responsibility: wire pollers, router, session managers, and label updates into one control loop.
 - Implementation: [daemon.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/daemon.ts)
 - Main interfaces:
   - `start()`
@@ -165,11 +172,11 @@ It also emits a structured session interaction stream for ACP control events and
 - subscribe to each `GitHubPoller`
 - fetch the current active session for each issue
 - ask `StateRouter` what to do
-- start or resume ACP sessions through `ACPSessionManager`
+- start or resume sessions through the repository's resolved harness manager
 - update GitHub labels through the correct repository poller
 
-It also reacts to ACP pause/completion callbacks by mapping the session back to its repository-scoped issue identity and applying the corresponding GitHub label transition.
-On process shutdown, it stops polling and closes all tracked ACP sessions before the daemon exits.
+It also reacts to harness pause/completion callbacks by mapping the session back to its repository-scoped issue identity and applying the corresponding GitHub label transition.
+On process shutdown, it stops polling and closes all tracked sessions before the daemon exits.
 
 ### 8. IPC Server
 
@@ -199,9 +206,9 @@ Supported commands are:
   - [src/cli/args.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/cli/args.ts)
 - Main interfaces:
   - `parseCliArgs(argv) => CliCommand`
-  - CLI commands: `start [--echo]`, `sessions`, `poll`, `stop <sessionId>`, `config <key> <value>`
+  - CLI commands: `start [--echo] [--harness <opencode|codex>]`, `sessions`, `poll`, `stop <sessionId>`, `config <key> <value>`
 
-The CLI does not implement daemon behavior itself. It translates shell arguments into an `IPCRequest`, opens a Unix socket connection to the daemon, sends one JSON message, and prints the JSON response or status message. For `poll`, the CLI renders a readable repository-by-repository summary of fetched issues and dispatches. For `start --echo`, it starts the daemon in-process and subscribes a terminal sink to the ACP session interaction stream.
+The CLI does not implement daemon behavior itself. It translates shell arguments into an `IPCRequest`, opens a Unix socket connection to the daemon, sends one JSON message, and prints the JSON response or status message. For `poll`, the CLI renders a readable repository-by-repository summary of fetched issues and dispatches. For `start --echo`, it starts the daemon in-process and subscribes a terminal sink to the session interaction stream. `start --harness` overrides the configured default harness for repositories that do not define their own `harness`.
 
 ## Component Interaction
 
@@ -209,19 +216,20 @@ The CLI does not implement daemon behavior itself. It translates shell arguments
 
 1. `src/index.ts` builds one `GitHubPoller` per configured repository.
 2. Each poller periodically calls GitHub and emits normalized issues.
-3. `DaemonCore` receives those issues and checks for any existing ACP session.
+3. `DaemonCore` receives those issues and checks for any existing active session.
 4. If the issue is awaiting approval, `DaemonCore` asks the poller for the latest comment.
 5. `StateRouter` evaluates the issue state and returns a `RouteDecision`.
-6. `DaemonCore` executes that decision by calling `ACPSessionManager` and then updating GitHub labels through the correct poller.
+6. `DaemonCore` executes that decision by calling the resolved harness session manager and then updating GitHub labels through the correct poller.
 
-### Daemon to OpenCode
+### Daemon to Harness
 
 1. `StateRouter` selects an agent name based on issue labels.
 2. `buildInitializationPrompt` constructs repository-aware agent context.
-3. `ACPSessionManager` creates or resumes a session through ACP.
-4. OpenCode agents perform the non-deterministic work: read issues, plan, code, test, and create PRs.
-5. ACP pause or completion events flow back into `DaemonCore`, which applies label changes in GitHub.
-6. Optional session-event subscribers, such as the `--echo` console sink, observe the same ACP interaction stream without affecting daemon control flow.
+3. The daemon resolves the repository's harness using repository config, then CLI override, then daemon default.
+4. The selected harness client creates or resumes a session.
+5. The harness performs the non-deterministic work: read issues, plan, code, test, and create PRs.
+6. Harness pause or completion events flow back into `DaemonCore`, which applies label changes in GitHub.
+7. Optional session-event subscribers, such as the `--echo` console sink, observe the same session interaction stream without affecting daemon control flow.
 
 ### CLI to Daemon through IPC
 
@@ -245,11 +253,11 @@ This keeps the CLI stateless and keeps all authoritative runtime state inside th
 
 The initial architecture documents separate deterministic daemon logic from non-deterministic coding logic. In that model:
 
-- the daemon owns polling, routing, session orchestration, and label transitions
-- OpenCode owns planning, coding, Git operations, and PR creation
+- the daemon owns polling, routing, harness selection, session orchestration, and label transitions
+- the selected harness owns planning, coding, Git operations, and PR creation
 - GitHub remains the user-facing state machine and approval interface
 
-The execution-plane definitions themselves live outside this package, in the OpenCode configuration:
+The execution-plane definitions themselves live outside this package, in the selected harness configuration:
 
 - worker and orchestrator agents
 - the `github-cli` skill

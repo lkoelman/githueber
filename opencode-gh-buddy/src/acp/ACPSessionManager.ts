@@ -1,27 +1,5 @@
-import type {
-  ACPManagerLike,
-  AgentSessionRecord,
-  GitHubIssue,
-  SessionInteractionEvent,
-  SessionStatus
-} from "../models/types.ts";
-
-interface ACPCreateSessionRequest {
-  agentDefinition: string;
-  initialPrompt: string;
-}
-
-interface ACPMessagePayload {
-  text: string;
-}
-
-interface ACPClientLike {
-  connect(): Promise<void>;
-  createSession(request: ACPCreateSessionRequest): Promise<{ id: string }>;
-  sendMessage(sessionId: string, payload: ACPMessagePayload): Promise<void>;
-  stopSession?(sessionId: string): Promise<void>;
-  on?(eventName: string, callback: (payload: { sessionId: string }) => void): void;
-}
+import type { HarnessClientLike } from "../models/types.ts";
+import { HarnessSessionManager } from "../harness/HarnessSessionManager.ts";
 
 interface OpenCodeMessageUpdatedEvent {
   payload?: {
@@ -76,15 +54,14 @@ function sessionMessageKey(sessionId: string, messageId: string): string {
   return `${sessionId}:${messageId}`;
 }
 
-/** Implements the daemon-facing ACP client contract over OpenCode's session HTTP API plus SSE events. */
-class OpenCodeHttpSseClient implements ACPClientLike {
+/** Implements the daemon-facing harness contract over OpenCode's session HTTP API plus SSE events. */
+class OpenCodeHttpSseClient implements HarnessClientLike {
   private readonly listeners = new Map<string, Set<(payload: { sessionId: string }) => void>>();
   private readonly assistantMessageText = new Map<string, string>();
   private readonly sessionTurnMessages = new Map<string, Set<string>>();
   private eventStreamStarted = false;
   private eventStreamReady: Promise<void> | null = null;
   private resolveEventStreamReady: (() => void) | null = null;
-  private eventStreamResponse: Response | null = null;
   private eventStreamTask: Promise<void> | null = null;
 
   constructor(
@@ -132,7 +109,6 @@ class OpenCodeHttpSseClient implements ACPClientLike {
       throw new Error("OpenCode global event stream did not provide a response body");
     }
 
-    this.eventStreamResponse = response;
     this.eventStreamReady = new Promise<void>((resolve) => {
       this.resolveEventStreamReady = resolve;
     });
@@ -252,7 +228,6 @@ class OpenCodeHttpSseClient implements ACPClientLike {
 
       this.trackTurnMessage(sessionId, messageId);
       this.assistantMessageText.set(sessionMessageKey(sessionId, messageId), text);
-      return;
     }
   }
 
@@ -302,7 +277,10 @@ class OpenCodeHttpSseClient implements ACPClientLike {
   }
 
   /** Creates a new OpenCode session and immediately sends the daemon's initialization prompt. */
-  async createSession(request: ACPCreateSessionRequest): Promise<{ id: string }> {
+  async createSession(request: {
+    agentDefinition: string;
+    initialPrompt: string;
+  }): Promise<{ id: string }> {
     const sessionResponse = await this.request("./session", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -333,7 +311,7 @@ class OpenCodeHttpSseClient implements ACPClientLike {
   }
 
   /** Resumes an existing session by sending another text prompt turn. */
-  async sendMessage(sessionId: string, payload: ACPMessagePayload): Promise<void> {
+  async sendMessage(sessionId: string, payload: { text: string }): Promise<void> {
     await this.sendPrompt(sessionId, payload.text);
   }
 
@@ -362,206 +340,14 @@ function findEventSeparator(buffer: string): { index: number; length: number } |
     : { index: carriageReturnIndex, length: 4 };
 }
 
-/** Creates the ACP client used by the daemon. */
-export async function createACPClient(
+/** Creates the OpenCode harness client used by the daemon. */
+export async function createOpenCodeHarnessClient(
   endpoint: string,
   fetchImpl: FetchLike = fetch
-): Promise<ACPClientLike> {
+): Promise<HarnessClientLike> {
   return new OpenCodeHttpSseClient(endpoint, fetchImpl);
 }
 
-/** Produces a repository-scoped issue key so identical issue numbers cannot collide. */
-function issueKey(repositoryKey: string, issueNumber: number): string {
-  return `${repositoryKey}#${issueNumber}`;
-}
-
-/** Tracks daemon-managed OpenCode sessions and translates ACP events into session state updates. */
-export class ACPSessionManager implements ACPManagerLike {
-  private readonly activeSessions = new Map<string, AgentSessionRecord>();
-  private readonly pauseListeners = new Set<(sessionId: string) => Promise<void> | void>();
-  private readonly completionListeners = new Set<(sessionId: string) => Promise<void> | void>();
-  private readonly sessionEventListeners = new Set<(event: SessionInteractionEvent) => void>();
-
-  constructor(private readonly acpClient: ACPClientLike) {
-    this.bindEvents();
-  }
-
-  /** Subscribes to ACP lifecycle events and fans them out to daemon listeners. */
-  private bindEvents(): void {
-    this.acpClient.on?.("sessionPaused", ({ sessionId }) => {
-      this.updateStatus(sessionId, "PAUSED_AWAITING_APPROVAL");
-      this.emitSessionEvent({
-        direction: "INBOUND",
-        kind: "SESSION_PAUSED",
-        ...this.getSessionEventContext(sessionId)
-      });
-      for (const listener of this.pauseListeners) {
-        void listener(sessionId);
-      }
-    });
-
-    this.acpClient.on?.("sessionCompleted", ({ sessionId }) => {
-      this.updateStatus(sessionId, "COMPLETED");
-      this.emitSessionEvent({
-        direction: "INBOUND",
-        kind: "SESSION_COMPLETED",
-        ...this.getSessionEventContext(sessionId)
-      });
-      for (const listener of this.completionListeners) {
-        void listener(sessionId);
-      }
-    });
-  }
-
-  /** Updates the cached status for the tracked session record with the given ACP session id. */
-  private updateStatus(sessionId: string, status: SessionStatus): void {
-    for (const [key, record] of this.activeSessions.entries()) {
-      if (record.sessionId === sessionId) {
-        this.activeSessions.set(key, { ...record, status });
-      }
-    }
-  }
-
-  /** Looks up a tracked session record by ACP session id. */
-  private findSessionById(sessionId: string): AgentSessionRecord | undefined {
-    return this.listSessions().find((session) => session.sessionId === sessionId);
-  }
-
-  /** Publishes one structured session interaction event to all subscribers. */
-  private emitSessionEvent(event: Omit<SessionInteractionEvent, "timestamp">): void {
-    const payload = {
-      timestamp: new Date().toISOString(),
-      ...event
-    } satisfies SessionInteractionEvent;
-
-    for (const listener of this.sessionEventListeners) {
-      listener(payload);
-    }
-  }
-
-  /** Builds event metadata from the tracked session record when available. */
-  private getSessionEventContext(
-    sessionId: string
-  ): Omit<SessionInteractionEvent, "timestamp" | "kind" | "direction" | "message"> {
-    const session = this.findSessionById(sessionId);
-
-    return {
-      sessionId,
-      repositoryKey: session?.repositoryKey,
-      repoOwner: session?.repoOwner,
-      repoName: session?.repoName,
-      issueNumber: session?.issueNumber,
-      agentName: session?.agentName
-    };
-  }
-
-  /** Verifies ACP connectivity before the daemon starts accepting work. */
-  async initialize(): Promise<void> {
-    await this.acpClient.connect();
-  }
-
-  /** Returns the active session currently associated with a repository issue, if any. */
-  getSessionForIssue(repositoryKey: string, issueNumber: number): AgentSessionRecord | undefined {
-    return this.activeSessions.get(issueKey(repositoryKey, issueNumber));
-  }
-
-  /** Lists every session record the daemon is currently tracking in memory. */
-  listSessions(): AgentSessionRecord[] {
-    return Array.from(this.activeSessions.values());
-  }
-
-  /** Creates a new ACP session for an issue and records the resulting runtime session id. */
-  async startNewSession(issue: GitHubIssue, agentName: string, prompt: string): Promise<void> {
-    const key = issueKey(issue.repositoryKey, issue.number);
-
-    this.emitSessionEvent({
-      direction: "CONTROL",
-      kind: "SESSION_STARTING",
-      repositoryKey: issue.repositoryKey,
-      repoOwner: issue.repoOwner,
-      repoName: issue.repoName,
-      issueNumber: issue.number,
-      agentName,
-      message: prompt
-    });
-
-    this.activeSessions.set(key, {
-      sessionId: `initializing-${issue.repositoryKey}-${issue.number}`,
-      repositoryKey: issue.repositoryKey,
-      repoOwner: issue.repoOwner,
-      repoName: issue.repoName,
-      issueNumber: issue.number,
-      status: "INITIALIZING",
-      agentName
-    });
-
-    const session = await this.acpClient.createSession({
-      agentDefinition: agentName,
-      initialPrompt: prompt
-    });
-
-    this.activeSessions.set(key, {
-      sessionId: session.id,
-      repositoryKey: issue.repositoryKey,
-      repoOwner: issue.repoOwner,
-      repoName: issue.repoName,
-      issueNumber: issue.number,
-      status: "RUNNING",
-      agentName
-    });
-
-    this.emitSessionEvent({
-      direction: "CONTROL",
-      kind: "SESSION_STARTED",
-      ...this.getSessionEventContext(session.id)
-    });
-    this.emitSessionEvent({
-      direction: "OUTBOUND",
-      kind: "PROMPT_SENT",
-      message: prompt,
-      ...this.getSessionEventContext(session.id)
-    });
-  }
-
-  /** Sends a follow-up prompt to an existing ACP session, typically after human feedback. */
-  async sendMessageToSession(sessionId: string, message: string): Promise<void> {
-    await this.acpClient.sendMessage(sessionId, { text: message });
-    this.emitSessionEvent({
-      direction: "OUTBOUND",
-      kind: "PROMPT_SENT",
-      message,
-      ...this.getSessionEventContext(sessionId)
-    });
-  }
-
-  /** Stops a tracked session and removes its repository-scoped mapping from memory. */
-  async stopSession(sessionId: string): Promise<void> {
-    if (this.acpClient.stopSession) {
-      await this.acpClient.stopSession(sessionId);
-    }
-
-    for (const [key, record] of this.activeSessions.entries()) {
-      if (record.sessionId === sessionId) {
-        this.activeSessions.delete(key);
-      }
-    }
-  }
-
-  /** Registers a callback for ACP pause events that require user approval in GitHub. */
-  onSessionPaused(callback: (sessionId: string) => Promise<void> | void): void {
-    this.pauseListeners.add(callback);
-  }
-
-  /** Registers a callback for ACP completion events so labels can be transitioned. */
-  onSessionCompleted(callback: (sessionId: string) => Promise<void> | void): void {
-    this.completionListeners.add(callback);
-  }
-
-  /** Registers a structured interaction listener and returns an unsubscribe callback. */
-  onSessionEvent(callback: (event: SessionInteractionEvent) => void): () => void {
-    this.sessionEventListeners.add(callback);
-    return () => {
-      this.sessionEventListeners.delete(callback);
-    };
-  }
-}
+export const createACPClient = createOpenCodeHarnessClient;
+export { HarnessSessionManager };
+export { HarnessSessionManager as ACPSessionManager };

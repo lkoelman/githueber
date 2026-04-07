@@ -1,27 +1,27 @@
 import type {
-  ACPManagerLike,
   AgentSessionRecord,
   DaemonConfig,
   GitHubIssue,
   GitHubPollerLike,
   ManualPollDispatchSummary,
   ManualPollSummary,
-  RouterLike
+  RouterLike,
+  SessionManagerLike
 } from "./models/types.ts";
 import { logger } from "./utils/logger.ts";
 
-/** Coordinates pollers, routing, ACP sessions, and GitHub label transitions for all repositories. */
+/** Coordinates pollers, routing, harness sessions, and GitHub label transitions for all repositories. */
 export class DaemonCore {
   constructor(
     private readonly pollers: Record<string, GitHubPollerLike>,
     private readonly router: RouterLike,
-    private readonly acpManager: ACPManagerLike,
+    private readonly sessionManager: SessionManagerLike,
     private readonly config: DaemonConfig
   ) {
     this.setupBindings();
   }
 
-  /** Wires poller updates and ACP lifecycle callbacks into the daemon control loop. */
+  /** Wires poller updates and session lifecycle callbacks into the daemon control loop. */
   private setupBindings(): void {
     for (const poller of Object.values(this.pollers)) {
       poller.onIssuesUpdated(async (issues) => {
@@ -31,7 +31,7 @@ export class DaemonCore {
       });
     }
 
-    this.acpManager.onSessionPaused(async (sessionId) => {
+    this.sessionManager.onSessionPaused(async (sessionId) => {
       const session = this.findSessionById(sessionId);
       if (!session) {
         return;
@@ -43,7 +43,7 @@ export class DaemonCore {
       );
     });
 
-    this.acpManager.onSessionCompleted(async (sessionId) => {
+    this.sessionManager.onSessionCompleted(async (sessionId) => {
       const session = this.findSessionById(sessionId);
       if (!session) {
         return;
@@ -65,14 +65,14 @@ export class DaemonCore {
     return poller;
   }
 
-  /** Looks up a tracked session record by ACP session id. */
+  /** Looks up a tracked session record by runtime session id. */
   private findSessionById(sessionId: string): AgentSessionRecord | undefined {
-    return this.acpManager.listSessions().find((session) => session.sessionId === sessionId);
+    return this.sessionManager.listSessions().find((session) => session.sessionId === sessionId);
   }
 
   /** Evaluates and executes the next action for one issue, returning manual-poll summary data when relevant. */
   private async processIssueInternal(issue: GitHubIssue): Promise<ManualPollDispatchSummary | null> {
-    const activeSession = this.acpManager.getSessionForIssue(issue.repositoryKey, issue.number);
+    const activeSession = this.sessionManager.getSessionForIssue(issue.repositoryKey, issue.number);
     const labels = this.config.repositories[issue.repositoryKey]?.labels;
     if (!labels) {
       throw new Error(`Unknown repository: ${issue.repositoryKey}`);
@@ -91,7 +91,7 @@ export class DaemonCore {
 
     switch (decision.action) {
       case "START_SESSION":
-        await this.acpManager.startNewSession(issue, decision.agentName!, decision.promptContext!);
+        await this.sessionManager.startNewSession(issue, decision.agentName!, decision.promptContext!);
         await poller.updateIssueLabel(issue.number, labels.processing, labels.queue);
         return {
           issueNumber: issue.number,
@@ -100,7 +100,7 @@ export class DaemonCore {
           agentName: decision.agentName
         };
       case "RESUME_APPROVED":
-        await this.acpManager.sendMessageToSession(
+        await this.sessionManager.sendMessageToSession(
           decision.acpSessionId!,
           decision.promptContext ?? "User approved. Proceed."
         );
@@ -111,7 +111,7 @@ export class DaemonCore {
           action: decision.action
         };
       case "RESUME_REVISED":
-        await this.acpManager.sendMessageToSession(
+        await this.sessionManager.sendMessageToSession(
           decision.acpSessionId!,
           decision.promptContext ?? "Please revise the plan."
         );
@@ -132,9 +132,9 @@ export class DaemonCore {
     await this.processIssueInternal(issue);
   }
 
-  /** Initializes ACP connectivity and starts each configured repository poll loop. */
+  /** Initializes harness connectivity and starts each configured repository poll loop. */
   public async start(): Promise<void> {
-    await this.acpManager.initialize();
+    await this.sessionManager.initialize();
     for (const poller of Object.values(this.pollers)) {
       poller.start(this.config.polling.intervalMs);
     }
@@ -144,33 +144,33 @@ export class DaemonCore {
     });
   }
 
-  /** Stops repository polling and closes every tracked ACP session before shutdown completes. */
+  /** Stops repository polling and closes every tracked session before shutdown completes. */
   public async stop(): Promise<void> {
     for (const poller of Object.values(this.pollers)) {
       poller.stop();
     }
 
-    const sessions = this.acpManager.listSessions();
+    const sessions = this.sessionManager.listSessions();
     const results = await Promise.allSettled(
-      sessions.map((session) => this.acpManager.stopSession(session.sessionId))
+      sessions.map((session) => this.sessionManager.stopSession(session.sessionId))
     );
     const failedSessionIds = results.flatMap((result, index) =>
       result.status === "rejected" ? [sessions[index]!.sessionId] : []
     );
 
     if (failedSessionIds.length > 0) {
-      throw new Error(`Failed to stop ACP sessions: ${failedSessionIds.join(", ")}`);
+      throw new Error(`Failed to stop sessions: ${failedSessionIds.join(", ")}`);
     }
   }
 
   /** Returns the in-memory view of all active agent sessions. */
   public getActiveSessions(): AgentSessionRecord[] {
-    return this.acpManager.listSessions();
+    return this.sessionManager.listSessions();
   }
 
-  /** Stops one session through ACP using its runtime session id. */
+  /** Stops one session using its runtime session id. */
   public async stopSession(sessionId: string): Promise<void> {
-    await this.acpManager.stopSession(sessionId);
+    await this.sessionManager.stopSession(sessionId);
   }
 
   /** Runs an immediate poll across repositories and reports which issues were fetched and dispatched. */

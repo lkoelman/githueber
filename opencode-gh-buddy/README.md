@@ -1,12 +1,13 @@
 # opencode-gh-buddy
 
-TypeScript/Bun daemon package that bridges GitHub issue state to OpenCode agents over ACP.
+TypeScript/Bun daemon package that bridges GitHub issue state to coding harnesses, currently OpenCode and the OpenAI Codex app server.
 
 ## Requirements
 
 - Bun installed
 - GitHub CLI authenticated with `gh auth login`
-- A running OpenCode server started with `opencode acp`
+- For the `opencode` harness: a running OpenCode server started with `opencode acp`
+- For the `codex` harness: the Codex CLI installed locally so the daemon can launch `codex app-server`
 - One local checkout per configured repository
 - Optional absolute parent directory for issue worktrees when `isolation.worktrees` is enabled
 - `GITHUB_TOKEN` available to the daemon, or `gh auth token` available as fallback
@@ -14,8 +15,9 @@ TypeScript/Bun daemon package that bridges GitHub issue state to OpenCode agents
 ## What it provides
 
 - Multi-repository config loading for one daemon instance
+- Harness selection per daemon and per repository
 - Repository-scoped issue routing and prompt generation
-- Bidirectional OpenCode session management over HTTP plus SSE and GitHub polling wrappers
+- Bidirectional session management for OpenCode over HTTP plus SSE, and for Codex over app-server stdio JSON-RPC
 - Unix domain socket IPC server and `gh-buddy` CLI
 - Example config and systemd unit scaffold
 
@@ -36,14 +38,15 @@ Edit `config/gh-buddy-config.yaml` and define every repository under `repositori
 - `owner`
 - `repo`
 - `local_repo_path`
+- optional `harness`
 - `labels.*`
 - `agent_mapping`
 
 Set the shared daemon config:
 
 - `execution.*`
+- `opencode.*` and/or `codex.*` for the harnesses you plan to use
 - `polling.interval_ms`
-- `acp.endpoint`
 - `ipc.socket_path`
 - `isolation.worktrees`
 
@@ -85,6 +88,7 @@ opencode acp --port 9000
 ```bash
 # after global install using `bun link`:
 gbr start
+gbr start --harness codex
 gbr start --echo
 
 # or in development mode
@@ -106,6 +110,7 @@ Run commands from the package directory:
 
 ```bash
 gbr start
+gbr start --harness codex
 gbr start --echo
 gbr --verbose start
 gbr sessions
@@ -119,6 +124,7 @@ The `gbr` command can be replaced by `bun run src/cli/index.ts` during developme
 Available commands:
 
 - `start`: start the daemon service directly from the CLI
+  - `--harness <opencode|codex>`: override the configured default harness for repositories that do not set their own `harness`
   - `--echo`: print structured ACP session interaction events to stdout as sessions start, resume, pause, and complete
 - `sessions`: list active ACP sessions, including repository key and owner/repo identity
 - `poll`: trigger an immediate GitHub poll cycle across all configured repositories and print the fetched and dispatched issues
@@ -143,6 +149,7 @@ repositories:
     owner: your-org
     repo: frontend-repo
     local_repo_path: /repos/frontend-repo
+    harness: opencode
     labels:
       queue_label: agent-queue
       processing_label: agent-processing
@@ -153,6 +160,22 @@ repositories:
     agent_mapping:
       bug-fix: github-worker-agent
       epic: github-orchestrator-agent
+  backend:
+    owner: your-org
+    repo: backend-repo
+    local_repo_path: /repos/backend-repo
+    harness: codex
+
+execution:
+  harness: opencode
+
+opencode:
+  endpoint: http://127.0.0.1:9000
+
+codex:
+  command: codex
+  args: app-server
+  model: gpt-5.4
 
 isolation:
   worktrees: /repos/worktrees
@@ -160,9 +183,28 @@ isolation:
 
 Each repository is polled independently. Active sessions are tracked by repository key plus issue number, so `frontend#42` and `backend#42` remain distinct work items.
 
+Harness resolution precedence is:
+
+1. `repositories.<key>.harness`
+2. `gbr start --harness <name>`
+3. `execution.harness`
+4. implicit default `opencode`
+
 When `isolation.worktrees` is set to an absolute directory, prompt generation switches issue execution into a deterministic per-issue worktree path like `/repos/worktrees/your-org-frontend-repo-issue-42`. Set it to `null` or `false` to keep working directly in `local_repo_path`.
 
 The ACP integration also emits a structured session interaction stream inside the daemon. `gbr start --echo` attaches a console sink to that stream today, and the same interface is intended to back a future `gbr follow <session-id>` IPC command.
+
+## Codex Harness Notes
+
+The Codex harness launches `codex app-server` over stdio for each daemon-managed session. This implementation was generated and tested against `codex-cli 0.118.0`.
+
+The vendored protocol types under `src/codex/generated/` can be regenerated with:
+
+```bash
+codex app-server generate-ts --out /tmp/codex-app-server-schema
+rm -rf src/codex/generated
+cp -R /tmp/codex-app-server-schema src/codex/generated
+```
 
 ## systemd
 

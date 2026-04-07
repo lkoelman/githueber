@@ -1,4 +1,5 @@
 export type GitHubIssueState = "open" | "closed";
+export type HarnessName = "opencode" | "codex";
 
 export type SessionStatus =
   | "INITIALIZING"
@@ -32,6 +33,7 @@ export interface RepositoryConfig {
   owner: string;
   repo: string;
   localRepoPath: string;
+  harness?: HarnessName;
   labels: LabelConfig;
   agentMapping: Record<string, string>;
 }
@@ -110,6 +112,7 @@ export interface LabelConfig {
 }
 
 export interface ExecutionConfig {
+  harness: HarnessName;
   autoApprove: boolean;
   concurrency: number;
   approvalComment: string;
@@ -122,8 +125,14 @@ export interface PollingConfig {
   intervalMs: number;
 }
 
-export interface ACPConfig {
+export interface OpenCodeConfig {
   endpoint: string;
+}
+
+export interface CodexConfig {
+  command: string;
+  args: string;
+  model: string | null;
 }
 
 export interface IPCConfig {
@@ -142,7 +151,8 @@ export interface DaemonConfig {
   repositories: Record<string, RepositoryConfig>;
   execution: ExecutionConfig;
   polling: PollingConfig;
-  acp: ACPConfig;
+  opencode?: OpenCodeConfig;
+  codex?: CodexConfig;
   ipc: IPCConfig;
   logging: LoggingConfig;
   isolation: IsolationConfig;
@@ -157,7 +167,25 @@ export interface GitHubPollerLike {
   onIssuesUpdated(callback: (issues: GitHubIssue[]) => Promise<void> | void): void;
 }
 
-export interface ACPManagerLike {
+export interface HarnessSessionStartRequest {
+  agentDefinition: string;
+  initialPrompt: string;
+  cwd?: string;
+}
+
+export interface HarnessMessagePayload {
+  text: string;
+}
+
+export interface HarnessClientLike {
+  connect(): Promise<void>;
+  createSession(request: HarnessSessionStartRequest): Promise<{ id: string }>;
+  sendMessage(sessionId: string, payload: HarnessMessagePayload): Promise<void>;
+  stopSession?(sessionId: string): Promise<void>;
+  on?(eventName: string, callback: (payload: { sessionId: string }) => void): void;
+}
+
+export interface SessionManagerLike {
   initialize(): Promise<void>;
   getSessionForIssue(repositoryKey: string, issueNumber: number): AgentSessionRecord | undefined;
   listSessions(): AgentSessionRecord[];
@@ -168,6 +196,8 @@ export interface ACPManagerLike {
   onSessionCompleted(callback: (sessionId: string) => Promise<void> | void): void;
   onSessionEvent(callback: (event: SessionInteractionEvent) => void): () => void;
 }
+
+export type ACPManagerLike = SessionManagerLike;
 
 export interface RouterLike {
   evaluateIssueState(

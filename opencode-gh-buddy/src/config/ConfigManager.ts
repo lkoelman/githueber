@@ -1,6 +1,13 @@
 import { readFileSync } from "node:fs";
 import { isAbsolute } from "node:path";
-import type { DaemonConfig, LabelConfig, RepositoryConfig } from "../models/types.ts";
+import type {
+  CodexConfig,
+  DaemonConfig,
+  HarnessName,
+  LabelConfig,
+  OpenCodeConfig,
+  RepositoryConfig
+} from "../models/types.ts";
 import { parseSimpleYaml } from "../utils/simpleYaml.ts";
 
 type ParsedConfig = Record<string, any>;
@@ -27,6 +34,19 @@ function asNumber(value: unknown, key: string): number {
     throw new Error(`Expected number for ${key}`);
   }
   return value;
+}
+
+/** Validates a harness selector against the supported daemon harnesses. */
+function asHarness(value: unknown, key: string): HarnessName {
+  if (value === undefined || value === null || value === "") {
+    throw new Error(`Expected non-empty string for ${key}`);
+  }
+
+  if (value === "opencode" || value === "codex") {
+    return value;
+  }
+
+  throw new Error(`Unsupported harness for ${key}: ${String(value)}`);
 }
 
 /** Validates that a config node is a mapping object. */
@@ -70,10 +90,38 @@ function normalizeRepository(key: string, raw: ParsedConfig): RepositoryConfig {
     owner: asString(raw.owner, `repositories.${key}.owner`),
     repo: asString(raw.repo, `repositories.${key}.repo`),
     localRepoPath: asString(raw.local_repo_path, `repositories.${key}.local_repo_path`),
+    harness:
+      raw.harness === undefined || raw.harness === null
+        ? undefined
+        : asHarness(raw.harness, `repositories.${key}.harness`),
     labels: normalizeLabels(labels, `repositories.${key}.labels`),
     agentMapping: Object.fromEntries(
       Object.entries(agentMapping).map(([label, agent]) => [label, asString(agent, `repositories.${key}.agent_mapping.${label}`)])
     )
+  };
+}
+
+/** Builds Codex config only when at least one resolved repository harness requires it. */
+function normalizeCodexConfig(raw: ParsedConfig, required: boolean): CodexConfig | undefined {
+  if (!required && Object.keys(raw).length === 0) {
+    return undefined;
+  }
+
+  return {
+    command: asString(raw.command, "codex.command"),
+    args: raw.args === undefined || raw.args === null ? "app-server" : asString(raw.args, "codex.args"),
+    model: raw.model === null || raw.model === undefined ? null : asString(raw.model, "codex.model")
+  };
+}
+
+/** Builds OpenCode config only when at least one resolved repository harness requires it. */
+function normalizeOpenCodeConfig(raw: ParsedConfig, required: boolean): OpenCodeConfig | undefined {
+  if (!required && Object.keys(raw).length === 0) {
+    return undefined;
+  }
+
+  return {
+    endpoint: asString(raw.endpoint, "opencode.endpoint")
   };
 }
 
@@ -91,16 +139,31 @@ export class ConfigManager {
     const repositories = asObject(raw.repositories, "repositories");
     const execution = asObject(raw.execution, "execution");
     const polling = asObject(raw.polling ?? {}, "polling");
-    const acp = asObject(raw.acp, "acp");
+    const rawOpenCode = raw.opencode ?? raw.acp ?? {};
+    const rawOpenCodeKey = raw.opencode ? "opencode" : "acp";
+    const opencode = asObject(rawOpenCode, rawOpenCodeKey);
+    const codex = asObject(raw.codex ?? {}, "codex");
     const ipc = asObject(raw.ipc ?? {}, "ipc");
     const logging = asObject(raw.logging ?? {}, "logging");
     const isolation = asObject(raw.isolation ?? {}, "isolation");
+    const normalizedRepositories = Object.fromEntries(
+      Object.entries(repositories).map(([key, value]) => [key, normalizeRepository(key, asObject(value, `repositories.${key}`))])
+    );
+    const defaultHarness =
+      execution.harness === undefined || execution.harness === null
+        ? "opencode"
+        : asHarness(execution.harness, "execution.harness");
+    const resolvedHarnesses = Object.values(normalizedRepositories).map(
+      (repository) => repository.harness ?? defaultHarness
+    );
+    const requiresOpenCode = resolvedHarnesses.includes("opencode");
+    const requiresCodex = resolvedHarnesses.includes("codex");
+    const normalizedOpenCode = normalizeOpenCodeConfig(opencode, requiresOpenCode);
 
     return {
-      repositories: Object.fromEntries(
-        Object.entries(repositories).map(([key, value]) => [key, normalizeRepository(key, asObject(value, `repositories.${key}`))])
-      ),
+      repositories: normalizedRepositories,
       execution: {
+        harness: defaultHarness,
         autoApprove: asBoolean(execution.auto_approve, "execution.auto_approve"),
         concurrency: asNumber(execution.concurrency, "execution.concurrency"),
         approvalComment: asString(execution.approval_comment, "execution.approval_comment"),
@@ -114,9 +177,8 @@ export class ConfigManager {
       polling: {
         intervalMs: typeof polling.interval_ms === "number" ? polling.interval_ms : 300000
       },
-      acp: {
-        endpoint: asString(acp.endpoint, "acp.endpoint")
-      },
+      opencode: normalizedOpenCode,
+      codex: normalizeCodexConfig(codex, requiresCodex),
       ipc: {
         socketPath:
           typeof ipc.socket_path === "string" && ipc.socket_path

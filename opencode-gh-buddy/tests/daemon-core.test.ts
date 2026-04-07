@@ -44,6 +44,7 @@ const config: DaemonConfig = {
     }
   },
   execution: {
+    harness: "opencode",
     autoApprove: false,
     concurrency: 1,
     approvalComment: "/approve",
@@ -54,7 +55,7 @@ const config: DaemonConfig = {
   polling: {
     intervalMs: 1000
   },
-  acp: {
+  opencode: {
     endpoint: "http://127.0.0.1:9000"
   },
   ipc: {

@@ -34,16 +34,17 @@ repositories:
     agent_mapping:
       "feature-request": "github-worker-agent"
 execution:
+  harness: "opencode"
   auto_approve: false
   concurrency: 2
   approval_comment: "/approve"
   revise_comment: "/revise"
   opencode_model: null
   timeout: 3600
+opencode:
+  endpoint: "http://127.0.0.1:9000"
 polling:
   interval_ms: 300000
-acp:
-  endpoint: "http://127.0.0.1:9000"
 ipc:
   socket_path: "/tmp/opencode-gh-buddy.sock"
 isolation:
@@ -79,6 +80,81 @@ describe("ConfigManager", () => {
     expect(config.execution.approvalComment).toBe("/approve");
     expect(config.ipc.socketPath).toBe("/tmp/opencode-gh-buddy.sock");
     expect(config.isolation.worktrees).toBe("/tmp/gh-buddy-worktrees");
+    expect(config.execution.harness).toBe("opencode");
+    expect(config.repositories.frontend.harness).toBeUndefined();
+    expect(config.opencode.endpoint).toBe("http://127.0.0.1:9000");
+
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("supports a per-repository harness override and Codex config", () => {
+    const dir = mkdtempSync(join(tmpdir(), "gh-buddy-harness-config-"));
+    const configPath = join(dir, "config.yaml");
+    writeFileSync(
+      configPath,
+      sampleConfig
+        .replace('  frontend:\n', '  frontend:\n    harness: "codex"\n')
+        .concat(
+          `
+codex:
+  command: "codex"
+  args: "app-server"
+  model: "gpt-5.4"
+`
+        )
+    );
+
+    const config = new ConfigManager(configPath).getConfig();
+
+    expect(config.repositories.frontend.harness).toBe("codex");
+    expect(config.repositories.backend.harness).toBeUndefined();
+    expect(config.codex).toEqual({
+      command: "codex",
+      args: "app-server",
+      model: "gpt-5.4"
+    });
+
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("defaults the daemon harness to opencode when omitted", () => {
+    const dir = mkdtempSync(join(tmpdir(), "gh-buddy-default-harness-"));
+    const configPath = join(dir, "config.yaml");
+    writeFileSync(configPath, sampleConfig.replace('  harness: "opencode"\n', ""));
+
+    const config = new ConfigManager(configPath).getConfig();
+
+    expect(config.execution.harness).toBe("opencode");
+
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("rejects unsupported harness names", () => {
+    const dir = mkdtempSync(join(tmpdir(), "gh-buddy-invalid-harness-"));
+    const configPath = join(dir, "config.yaml");
+    writeFileSync(
+      configPath,
+      sampleConfig.replace('  harness: "opencode"', '  harness: "unsupported"')
+    );
+
+    expect(() => new ConfigManager(configPath)).toThrow(
+      "Unsupported harness for execution.harness: unsupported"
+    );
+
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("requires Codex config only when a repository resolves to codex", () => {
+    const dir = mkdtempSync(join(tmpdir(), "gh-buddy-missing-codex-"));
+    const configPath = join(dir, "config.yaml");
+    writeFileSync(
+      configPath,
+      sampleConfig.replace('  frontend:\n', '  frontend:\n    harness: "codex"\n')
+    );
+
+    expect(() => new ConfigManager(configPath)).toThrow(
+      "Expected non-empty string for codex.command"
+    );
 
     rmSync(dir, { recursive: true, force: true });
   });

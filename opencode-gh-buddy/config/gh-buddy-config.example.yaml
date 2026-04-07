@@ -4,6 +4,9 @@ repositories:
     owner: "your-org"
     repo: "frontend-repo"
     local_repo_path: "/path/to/frontend-repo"
+    # Optional per-repository override. If unset, falls back to execution.harness
+    # or the gbr start --harness flag for this daemon run.
+    harness: "opencode"
     labels:
       queue_label: "agent-queue"
       processing_label: "agent-processing"
@@ -21,6 +24,7 @@ repositories:
     owner: "your-org"
     repo: "backend-repo"
     local_repo_path: "/path/to/backend-repo"
+    harness: "codex"
     labels:
       queue_label: "agent-queue"
       processing_label: "agent-processing"
@@ -35,6 +39,8 @@ repositories:
       "refactor": "github-orchestrator-agent"
 
 execution:
+  # Global default harness when a repository does not set its own harness.
+  harness: "opencode"
   auto_approve: false
   concurrency: 1
   approval_comment: "/approve"
@@ -45,8 +51,13 @@ execution:
 polling:
   interval_ms: 300000
 
-acp:
+opencode:
   endpoint: "http://127.0.0.1:9000"
+
+codex:
+  command: "codex"
+  args: "app-server"
+  model: "gpt-5.4"
 
 ipc:
   socket_path: "/tmp/opencode-gh-buddy.sock"

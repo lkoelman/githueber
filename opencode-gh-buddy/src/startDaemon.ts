@@ -1,9 +1,13 @@
 import { ConfigManager } from "./config/ConfigManager.ts";
-import { ACPSessionManager, createACPClient } from "./acp/ACPSessionManager.ts";
+import { createOpenCodeHarnessClient } from "./acp/ACPSessionManager.ts";
 import { createSessionEventEchoListener } from "./acp/sessionEvents.ts";
+import { createCodexHarnessClient } from "./codex/CodexHarnessClient.ts";
 import { DaemonCore } from "./daemon.ts";
 import { GitHubPoller, createOctokit, resolveGitHubToken } from "./github/GitHubPoller.ts";
+import { HarnessSessionManager } from "./harness/HarnessSessionManager.ts";
+import { MultiHarnessSessionManager } from "./harness/MultiHarnessSessionManager.ts";
 import { IPCServer } from "./ipc/IPCServer.ts";
+import type { DaemonConfig, HarnessName, RepositoryConfig, SessionManagerLike } from "./models/types.ts";
 import { StateRouter } from "./router/StateRouter.ts";
 import { logger } from "./utils/logger.ts";
 
@@ -27,6 +31,60 @@ interface ShutdownHandlerDeps {
 export interface StartDaemonOptions {
   echoSessionEvents?: boolean;
   sessionEventWriter?: (chunk: string) => void;
+  harnessOverride?: HarnessName;
+}
+
+/** Resolves the runtime harness for one repository using repo, CLI, config, then implicit defaults. */
+export function resolveRepositoryHarness(
+  repository: RepositoryConfig,
+  config: Pick<DaemonConfig, "execution">,
+  options: Pick<StartDaemonOptions, "harnessOverride"> = {}
+): HarnessName {
+  return repository.harness ?? options.harnessOverride ?? config.execution.harness ?? "opencode";
+}
+
+interface SessionManagerFactoryDeps {
+  createOpenCodeClient?: typeof createOpenCodeHarnessClient;
+  createCodexClient?: typeof createCodexHarnessClient;
+}
+
+/** Builds only the harness session managers required by the resolved repository harness set. */
+export async function createSessionManagerForConfig(
+  config: DaemonConfig,
+  options: Pick<StartDaemonOptions, "harnessOverride"> = {},
+  deps: SessionManagerFactoryDeps = {}
+): Promise<SessionManagerLike> {
+  const createOpenCodeClient = deps.createOpenCodeClient ?? createOpenCodeHarnessClient;
+  const createCodexClient = deps.createCodexClient ?? createCodexHarnessClient;
+  const harnessManagers = new Map<HarnessName, SessionManagerLike>();
+
+  for (const repository of Object.values(config.repositories)) {
+    const harness = resolveRepositoryHarness(repository, config, options);
+    if (harnessManagers.has(harness)) {
+      continue;
+    }
+
+    if (harness === "opencode") {
+      if (!config.opencode) {
+        throw new Error("OpenCode harness is not configured for this daemon");
+      }
+      const client = await createOpenCodeClient(config.opencode.endpoint);
+      harnessManagers.set("opencode", new HarnessSessionManager(client));
+      continue;
+    }
+
+    if (!config.codex) {
+      throw new Error("Codex harness is not configured for this daemon");
+    }
+    const client = createCodexClient(config.codex);
+    harnessManagers.set("codex", new HarnessSessionManager(client));
+  }
+
+  return new MultiHarnessSessionManager(
+    Array.from(harnessManagers.values()),
+    config.repositories,
+    (repository) => harnessManagers.get(resolveRepositoryHarness(repository, config, options))!
+  );
 }
 
 /** Builds the shared shutdown routine used by the daemon's signal handlers. */
@@ -103,18 +161,17 @@ export async function startDaemon(options: StartDaemonOptions = {}): Promise<voi
   );
 
   const router = new StateRouter(config);
-  const acpClient = await createACPClient(config.acp.endpoint);
-  const acpManager = new ACPSessionManager(acpClient);
+  const sessionManager = await createSessionManagerForConfig(config, options);
 
   if (options.echoSessionEvents) {
-    acpManager.onSessionEvent(
+    sessionManager.onSessionEvent(
       createSessionEventEchoListener(
         options.sessionEventWriter ?? ((chunk) => process.stdout.write(chunk))
       )
     );
   }
 
-  const daemon = new DaemonCore(pollers, router, acpManager, config);
+  const daemon = new DaemonCore(pollers, router, sessionManager, config);
   const ipc = new IPCServer(config.ipc.socketPath, {
     getActiveSessions: () => daemon.getActiveSessions(),
     stopSession: (sessionId) => daemon.stopSession(sessionId),
