@@ -66,6 +66,10 @@ Install the CLI (`gbr` command) globally:
 bun link
 ```
 
+TODO: install the agent and skill definitions for your coding agents
+- then map them in your config file
+- explain the defaults
+
 ## Usage
 
 1. Start the OpenCode ACP server in its own shell:
@@ -86,6 +90,8 @@ bun run src/index.ts
 # or after a local build:
 bun run dist/index.js
 ```
+
+Press `Ctrl+C` to stop the daemon gracefully. It will print a shutdown message, stop polling, and close tracked ACP sessions before exiting.
 
 3. Make changes on Github and wait for `polling.intervalMs` or run `gbr poll`
 

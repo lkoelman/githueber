@@ -107,6 +107,7 @@ class PollerStub implements GitHubPollerLike {
 class ACPStub implements ACPManagerLike {
   public started: Array<{ repositoryKey: string; issueNumber: number; agentName: string; prompt: string }> = [];
   public sent: Array<{ sessionId: string; message: string }> = [];
+  public stopped: string[] = [];
   public sessions = new Map<string, AgentSessionRecord>();
 
   async initialize(): Promise<void> {}
@@ -131,7 +132,14 @@ class ACPStub implements ACPManagerLike {
   async sendMessageToSession(sessionId: string, message: string): Promise<void> {
     this.sent.push({ sessionId, message });
   }
-  async stopSession(): Promise<void> {}
+  async stopSession(sessionId: string): Promise<void> {
+    this.stopped.push(sessionId);
+    for (const [key, record] of this.sessions.entries()) {
+      if (record.sessionId === sessionId) {
+        this.sessions.delete(key);
+      }
+    }
+  }
   onSessionPaused(): void {}
   onSessionCompleted(): void {}
 }
@@ -245,5 +253,52 @@ describe("DaemonCore", () => {
         }
       ]
     });
+  });
+
+  test("stops polling and closes all ACP sessions during daemon shutdown", async () => {
+    const frontendPoller = new PollerStub("frontend");
+    const backendPoller = new PollerStub("backend");
+    const acp = new ACPStub();
+    acp.sessions.set("frontend#42", {
+      sessionId: "frontend-session-42",
+      repositoryKey: "frontend",
+      repoOwner: "acme",
+      repoName: "frontend",
+      issueNumber: 42,
+      status: "RUNNING",
+      agentName: "github-worker-agent"
+    });
+    acp.sessions.set("backend#99", {
+      sessionId: "backend-session-99",
+      repositoryKey: "backend",
+      repoOwner: "acme",
+      repoName: "backend",
+      issueNumber: 99,
+      status: "PAUSED_AWAITING_APPROVAL",
+      agentName: "github-worker-agent"
+    });
+
+    let frontendStopped = false;
+    let backendStopped = false;
+    frontendPoller.stop = () => {
+      frontendStopped = true;
+    };
+    backendPoller.stop = () => {
+      backendStopped = true;
+    };
+
+    const daemon = new DaemonCore(
+      { frontend: frontendPoller, backend: backendPoller },
+      new RouterStub({ action: "IGNORE" }),
+      acp,
+      config
+    );
+
+    await daemon.stop();
+
+    expect(frontendStopped).toBe(true);
+    expect(backendStopped).toBe(true);
+    expect(acp.stopped).toEqual(["frontend-session-42", "backend-session-99"]);
+    expect(acp.listSessions()).toEqual([]);
   });
 });

@@ -144,10 +144,22 @@ export class DaemonCore {
     });
   }
 
-  /** Stops repository polling without mutating any existing ACP sessions. */
-  public stop(): void {
+  /** Stops repository polling and closes every tracked ACP session before shutdown completes. */
+  public async stop(): Promise<void> {
     for (const poller of Object.values(this.pollers)) {
       poller.stop();
+    }
+
+    const sessions = this.acpManager.listSessions();
+    const results = await Promise.allSettled(
+      sessions.map((session) => this.acpManager.stopSession(session.sessionId))
+    );
+    const failedSessionIds = results.flatMap((result, index) =>
+      result.status === "rejected" ? [sessions[index]!.sessionId] : []
+    );
+
+    if (failedSessionIds.length > 0) {
+      throw new Error(`Failed to stop ACP sessions: ${failedSessionIds.join(", ")}`);
     }
   }
 

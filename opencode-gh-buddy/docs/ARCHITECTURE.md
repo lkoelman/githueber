@@ -167,6 +167,7 @@ The prompt builder converts a `GitHubIssue` into structured context, including r
 - update GitHub labels through the correct repository poller
 
 It also reacts to ACP pause/completion callbacks by mapping the session back to its repository-scoped issue identity and applying the corresponding GitHub label transition.
+On process shutdown, it stops polling and closes all tracked ACP sessions before the daemon exits.
 
 ### 8. IPC Server
 
