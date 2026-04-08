@@ -7,6 +7,9 @@ Bugs
         - modify instructions in `githueber/src/harnessAssets/index.ts`
 
 Improvements
+- improve onboarding and README
+    - installer script: install config into `~/.config/githueber/config.yaml`
+    - update README: edit this config after installation
 - (TOTEST) ensure `plan` mode is used when the plan is made
 - one log file per session
     - always log what is printed when `--echo` is set

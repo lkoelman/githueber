@@ -17,7 +17,7 @@
   <img alt="GitHub License" src="https://img.shields.io/github/license/lkoelman/githueber">
 </p>
 
-Githueber lets you use GitHub as a frontend to manage your coding harness and sessions right on your local device. The philosophy is "GitHub is already a very good UI/UX for managing a repo, its issues and PRs. S let's use it as the control center for coordinating your agents".
+Githueber lets you use GitHub as a frontend to manage your coding harness and sessions right on your local device. The philosophy is "GitHub is already a very good UI/UX for managing a repo, its issues and PRs. So let's use it as the control center for coordinating your agents".
 
 ## Why Githueber?
 
@@ -39,21 +39,25 @@ Install `gbr`, the Githueber CLI:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/lkoelman/githueber/main/install-githueber.sh | bash
+# (The installer installs and links the `gbr` command globally using `bun link`)
 ```
 
-Common options:
+Install agent and skill definitions for your harness:
 
 ```bash
-# install without prompting for confirmation
-curl -fsSL https://raw.githubusercontent.com/lkoelman/githueber/main/install-githueber.sh | bash -s -- -y
-
-# install a different harness asset set
-curl -fsSL https://raw.githubusercontent.com/lkoelman/githueber/main/install-githueber.sh | bash -s -- --harness codex
+gbr harness-install <opencode|codex|claude|gemini>
 ```
 
-The installer installs and links the `gbr` command globally using `bun link`.
+Set up your repositories in the config file:
 
-Manual install remains available:
+```bash
+nano ~/.config/githueber/githueber-config.yaml
+```
+
+### Manual Installation
+
+
+Manual install:
 
 ```bash
 cd githueber/githueber
@@ -65,31 +69,6 @@ bun install
 cp config/githueber-config.example.yaml config/githueber-config.yaml
 ```
 
-Edit `config/githueber-config.yaml` and define every repository under `repositories:`. Each repository entry needs:
-
-- `owner`
-- `repo`
-- `local_repo_path`
-- optional `harness`
-- `labels.*`
-- `agent_mapping`
-
-Set the shared daemon config:
-
-- `execution.*`
-- `opencode.*` and/or `codex.*` for the harnesses you plan to use
-- `polling.interval_ms`
-- `ipc.socket_path`
-- `isolation.worktrees`
-
-Export the daemon environment:
-
-```bash
-export GITHUB_TOKEN=your_token_here
-export GITHUEBER_CONFIG=/path/to/githueber-config.yaml
-```
-
-If `GITHUB_TOKEN` is unset or cannot access a configured repository, the daemon falls back to `gh auth token`.
 
 Build the daemon and CLI:
 
@@ -103,12 +82,6 @@ Install the CLI (`gbr` command) globally:
 bun link
 ```
 
-Install skill and agent definitions into your harness's global config folder:
-
-```bash
-gbr harness-install <opencode|codex|claude|gemini>
-```
-
 ## Usage
 
 1. Start the OpenCode ACP server in its own shell:
@@ -120,6 +93,12 @@ opencode acp --port 9000
 2. Start the Githueber daemon service:
 
 ```bash
+# set environment variables:
+export GITHUB_TOKEN=your_token_here
+# (If `GITHUB_TOKEN` is unset or cannot access a configured repository, the daemon falls back to `gh auth token`.)
+
+export GITHUEBER_CONFIG=/path/to/githueber-config.yaml
+
 # after global install using `bun link`:
 gbr start [--echo]
 ```
