@@ -54,7 +54,7 @@ Export the daemon environment:
 
 ```bash
 export GITHUB_TOKEN=your_token_here
-export GITHUBER_CONFIG=/path/to/githueber-config.yaml
+export GITHUEBER_CONFIG=/path/to/githueber-config.yaml
 ```
 
 If `GITHUB_TOKEN` is unset or cannot access a configured repository, the daemon falls back to `gh auth token`.
@@ -71,21 +71,11 @@ Install the CLI (`gbr` command) globally:
 bun link
 ```
 
-Install the generated harness assets into your user home directory:
+Install skill and agent definitions into your harness's global config folder:
 
 ```bash
-gbr harness-install opencode
-gbr harness-install codex
-gbr harness-install claude
-gbr harness-install gemini
+gbr harness-install <opencode|codex|claude|gemini>
 ```
-
-This writes agent and skill definitions to:
-
-- `opencode`: `~/.opencode/agents` and `~/.opencode/skills`
-- `codex`: `~/.codex/agents` and `~/.codex/skills`
-- `claude`: `~/.claude/agents` and `~/.claude/skills`
-- `gemini`: `~/.gemini/agents` and `~/.gemini/skills`
 
 ## Usage
 
@@ -99,10 +89,7 @@ opencode acp --port 9000
 
 ```bash
 # after global install using `bun link`:
-gbr harness-install opencode
-gbr start
-gbr start --harness codex
-gbr start --echo
+gbr start [--echo]
 
 # or in development mode
 bun run src/index.ts
@@ -140,7 +127,7 @@ Available commands:
 - `harness-install <opencode|codex|claude|gemini>`: install generated agent and skill definitions into the selected harness's user-home directories
 - `start`: start the daemon service directly from the CLI
   - `--harness <opencode|codex>`: override the configured default harness for repositories that do not set their own `harness`
-  - `--echo`: print structured ACP session interaction events to stdout as sessions start, resume, pause, and complete
+  - `--echo`: stream assistant response text to stdout in real time while keeping lifecycle markers for prompts, pauses, and completion
 - `sessions`: list active ACP sessions, including repository key and owner/repo identity
 - `poll`: trigger an immediate GitHub poll cycle across all configured repositories and print the fetched and dispatched issues
 - `stop <session-id>`: stop a tracked ACP session by session id
@@ -207,7 +194,7 @@ Harness resolution precedence is:
 
 When `isolation.worktrees` is set to an absolute directory, prompt generation switches issue execution into a deterministic per-issue worktree path like `/repos/worktrees/your-org-frontend-repo-issue-42`. Set it to `null` or `false` to keep working directly in `local_repo_path`.
 
-The ACP integration also emits a structured session interaction stream inside the daemon. `gbr start --echo` attaches a console sink to that stream today, and the same interface is intended to back a future `gbr follow <session-id>` IPC command.
+The ACP integration also emits a structured session interaction stream inside the daemon. `gbr start --echo` now renders streamed assistant response text from that event stream in real time, while the same interface remains suitable for a future `gbr follow <session-id>` IPC command.
 
 ## Codex Harness Notes
 
