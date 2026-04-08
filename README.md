@@ -71,9 +71,21 @@ Install the CLI (`gbr` command) globally:
 bun link
 ```
 
-TODO: install the agent and skill definitions for your coding agents
-- then map them in your config file
-- explain the defaults
+Install the generated harness assets into your user home directory:
+
+```bash
+gbr harness-install opencode
+gbr harness-install codex
+gbr harness-install claude
+gbr harness-install gemini
+```
+
+This writes agent and skill definitions to:
+
+- `opencode`: `~/.opencode/agents` and `~/.opencode/skills`
+- `codex`: `~/.codex/agents` and `~/.codex/skills`
+- `claude`: `~/.claude/agents` and `~/.claude/skills`
+- `gemini`: `~/.gemini/agents` and `~/.gemini/skills`
 
 ## Usage
 
@@ -87,6 +99,7 @@ opencode acp --port 9000
 
 ```bash
 # after global install using `bun link`:
+gbr harness-install opencode
 gbr start
 gbr start --harness codex
 gbr start --echo
@@ -109,6 +122,7 @@ The CLI talks to the daemon over a Unix domain socket. The default socket path i
 Run commands from the package directory:
 
 ```bash
+gbr harness-install codex
 gbr start
 gbr start --harness codex
 gbr start --echo
@@ -123,6 +137,7 @@ The `gbr` command can be replaced by `bun run src/cli/index.ts` during developme
 
 Available commands:
 
+- `harness-install <opencode|codex|claude|gemini>`: install generated agent and skill definitions into the selected harness's user-home directories
 - `start`: start the daemon service directly from the CLI
   - `--harness <opencode|codex>`: override the configured default harness for repositories that do not set their own `harness`
   - `--echo`: print structured ACP session interaction events to stdout as sessions start, resume, pause, and complete

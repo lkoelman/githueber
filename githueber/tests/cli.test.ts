@@ -112,6 +112,22 @@ describe("parseCliArgs", () => {
     });
   });
 
+  test("builds harness install request", () => {
+    expect(parseCliArgs(["harness-install", "codex"])).toEqual({
+      kind: "INSTALL_HARNESS",
+      harness: "codex",
+      verbose: false
+    });
+  });
+
+  test("accepts verbose flag with harness install", () => {
+    expect(parseCliArgs(["--verbose", "harness-install", "gemini"])).toEqual({
+      kind: "INSTALL_HARNESS",
+      harness: "gemini",
+      verbose: true
+    });
+  });
+
   test("rejects echo outside the start command", () => {
     expect(() => parseCliArgs(["sessions", "--echo"])).toThrow(
       "--echo can only be used with the start command"
@@ -127,6 +143,18 @@ describe("parseCliArgs", () => {
   test("rejects unknown harness names", () => {
     expect(() => parseCliArgs(["start", "--harness", "other"])).toThrow(
       "Unsupported harness: other. Supported harnesses: opencode, codex"
+    );
+  });
+
+  test("rejects harness install without a harness name", () => {
+    expect(() => parseCliArgs(["harness-install"])).toThrow(
+      "Usage: gbr harness-install <opencode|codex|claude|gemini>"
+    );
+  });
+
+  test("rejects unknown harness install names", () => {
+    expect(() => parseCliArgs(["harness-install", "other"])).toThrow(
+      "Unsupported install harness: other. Supported harnesses: opencode, codex, claude, gemini"
     );
   });
 });

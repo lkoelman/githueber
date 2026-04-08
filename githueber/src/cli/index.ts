@@ -1,14 +1,17 @@
 #!/usr/bin/env /home/lkoel/.bun/bin/bun
 import net from "node:net";
+import { homedir } from "node:os";
 import { parseCliArgs } from "./args.ts";
 import type { IPCResponse, ManualPollSummary } from "../models/types.ts";
 import { startDaemon } from "../startDaemon.ts";
+import { installHarnessAssets } from "../harnessAssets/index.ts";
 
 /** Returns the CLI help text shared by normal usage and error paths. */
 function formatUsage(): string {
   return [
     "Usage:",
     "  gbr [--verbose|-v] [--echo] [--harness <opencode|codex>] start",
+    "  gbr [--verbose|-v] harness-install <opencode|codex|claude|gemini>",
     "  gbr [--verbose|-v] sessions",
     "  gbr [--verbose|-v] stop <sessionId>",
     "  gbr [--verbose|-v] poll",
@@ -98,6 +101,17 @@ async function main(): Promise<void> {
         echoSessionEvents: command.echo,
         harnessOverride: command.harness
       });
+      return;
+    }
+
+    if (command.kind === "INSTALL_HARNESS") {
+      const summary = installHarnessAssets({
+        harness: command.harness,
+        homeDir: homedir()
+      });
+      console.log(
+        `Installed ${summary.filesWritten} ${summary.harness} asset(s) into ${summary.targetRoot}`
+      );
       return;
     }
 

@@ -19,6 +19,7 @@ Support OpenCode
 
 Support Gemini
 - https://geminicli.com/docs/core/subagents
+- https://geminicli.com/docs/cli/creating-skills/
 
 Bug: named and resumable sessions
 - the OpenCode sessions created by the daemon are not listed when running `opencode session list`

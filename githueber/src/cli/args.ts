@@ -1,7 +1,9 @@
 import type { HarnessName, IPCRequest } from "../models/types.ts";
+import type { InstallHarnessName } from "../harnessAssets/index.ts";
 
 export type CliCommand =
   | { kind: "START_DAEMON"; verbose: boolean; echo: boolean; harness?: HarnessName }
+  | { kind: "INSTALL_HARNESS"; verbose: boolean; harness: InstallHarnessName }
   | { kind: "IPC"; verbose: boolean; request: IPCRequest };
 
 /** Validates a CLI harness flag value. */
@@ -11,6 +13,17 @@ function parseHarnessFlag(value: string | undefined): HarnessName {
   }
 
   throw new Error(`Unsupported harness: ${value ?? "(missing)"}. Supported harnesses: opencode, codex`);
+}
+
+/** Validates a CLI harness-install target value. */
+function parseInstallHarnessFlag(value: string | undefined): InstallHarnessName {
+  if (value === "opencode" || value === "codex" || value === "claude" || value === "gemini") {
+    return value;
+  }
+
+  throw new Error(
+    `Unsupported install harness: ${value ?? "(missing)"}. Supported harnesses: opencode, codex, claude, gemini`
+  );
 }
 
 /** Parses shell arguments into either a daemon-start action or a concrete IPC request. */
@@ -40,6 +53,15 @@ export function parseCliArgs(argv: string[]): CliCommand {
   switch (command) {
     case "start":
       return { kind: "START_DAEMON", verbose, echo, harness };
+    case "harness-install":
+      if (!rest[0]) {
+        throw new Error("Usage: gbr harness-install <opencode|codex|claude|gemini>");
+      }
+      return {
+        kind: "INSTALL_HARNESS",
+        verbose,
+        harness: parseInstallHarnessFlag(rest[0])
+      };
     case "sessions":
       return { kind: "IPC", verbose, request: { command: "LIST_SESSIONS", payload: {} } };
     case "stop":
