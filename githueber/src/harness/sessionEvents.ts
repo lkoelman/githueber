@@ -45,7 +45,28 @@ function colorizeSessionInteractionEvent(line: string, event: SessionInteraction
 export function createSessionEventEchoListener(
   write: SessionEventWriter = (chunk) => process.stdout.write(chunk)
 ): (event: SessionInteractionEvent) => void {
+  let activeStreamSessionId: string | null = null;
+
   return (event) => {
+    if (event.kind === "MESSAGE_DELTA" && event.direction === "INBOUND" && event.message) {
+      if (activeStreamSessionId && activeStreamSessionId !== event.sessionId) {
+        write(`${ANSI_RESET}\n`);
+      }
+
+      if (activeStreamSessionId !== event.sessionId) {
+        write(ANSI_GREEN);
+      }
+
+      activeStreamSessionId = event.sessionId ?? null;
+      write(event.message);
+      return;
+    }
+
+    if (activeStreamSessionId) {
+      write(`${ANSI_RESET}\n`);
+      activeStreamSessionId = null;
+    }
+
     write(`${colorizeSessionInteractionEvent(formatSessionInteractionEvent(event), event)}\n`);
   };
 }

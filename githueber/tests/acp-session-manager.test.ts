@@ -64,9 +64,13 @@ describe("createACPClient", () => {
     const client = await createACPClient("http://127.0.0.1:9000", fetchStub);
     const paused: string[] = [];
     const completed: string[] = [];
+    const deltas: Array<{ sessionId: string; message: string }> = [];
 
     client.on?.("sessionPaused", ({ sessionId }) => paused.push(sessionId));
     client.on?.("sessionCompleted", ({ sessionId }) => completed.push(sessionId));
+    client.on?.("sessionMessageDelta", ({ sessionId, message }) => {
+      deltas.push({ sessionId, message });
+    });
 
     await client.connect();
 
@@ -137,13 +141,17 @@ describe("createACPClient", () => {
         body: undefined
       }
     ]);
+    expect(deltas).toEqual([
+      { sessionId: "ses_123", message: "Plan ready. [AWAITING_APPROVAL]" },
+      { sessionId: "ses_123", message: "Implementation done." }
+    ]);
     expect(paused).toEqual(["ses_123"]);
     expect(completed).toEqual(["ses_123"]);
   });
 });
 
 describe("HarnessSessionManager session events", () => {
-  test("publishes structured events for session startup, prompts, and lifecycle updates", async () => {
+  test("publishes structured events for session startup, prompts, streamed deltas, and lifecycle updates", async () => {
     const listeners = new Map<string, (payload: { sessionId: string }) => void>();
     const events: Array<Record<string, unknown>> = [];
 
@@ -187,6 +195,10 @@ describe("HarnessSessionManager session events", () => {
 
     await manager.startNewSession(issue, "github-worker-agent", "Start working on issue 42.");
     await manager.sendMessageToSession("ses_123", "User approved. Proceed.");
+    (listeners.get("sessionMessageDelta") as ((payload: { sessionId: string; message: string }) => void) | undefined)?.({
+      sessionId: "ses_123",
+      message: "Streaming response."
+    });
     listeners.get("sessionPaused")?.({ sessionId: "ses_123" });
     listeners.get("sessionCompleted")?.({ sessionId: "ses_123" });
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -227,6 +239,15 @@ describe("HarnessSessionManager session events", () => {
         issueNumber: 42,
         agentName: "github-worker-agent",
         message: "User approved. Proceed."
+      },
+      {
+        kind: "MESSAGE_DELTA",
+        direction: "INBOUND",
+        sessionId: "ses_123",
+        repositoryKey: "frontend",
+        issueNumber: 42,
+        agentName: "github-worker-agent",
+        message: "Streaming response."
       },
       {
         kind: "SESSION_PAUSED",

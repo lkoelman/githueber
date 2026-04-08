@@ -61,6 +61,7 @@ describe("createCodexHarnessClient", () => {
     const fake = createFakeCodexProcess();
     const paused: string[] = [];
     const completed: string[] = [];
+    const deltas: Array<{ sessionId: string; message: string }> = [];
 
     const client = createCodexHarnessClient(
       {
@@ -73,6 +74,7 @@ describe("createCodexHarnessClient", () => {
 
     client.on?.("sessionPaused", ({ sessionId }) => paused.push(sessionId));
     client.on?.("sessionCompleted", ({ sessionId }) => completed.push(sessionId));
+    client.on?.("sessionMessageDelta", ({ sessionId, message }) => deltas.push({ sessionId, message }));
 
     const createPromise = client.createSession({
       agentDefinition: "github-worker-agent",
@@ -89,6 +91,16 @@ describe("createCodexHarnessClient", () => {
 
     const session = await createPromise;
     expect(session).toEqual({ id: "thr_123" });
+
+    fake.send({
+      method: "item/agentMessage/delta",
+      params: {
+        threadId: "thr_123",
+        turnId: "turn_123",
+        itemId: "item_message_1",
+        delta: "Working on it."
+      }
+    });
 
     fake.send({
       method: "item/fileChange/requestApproval",
@@ -119,6 +131,7 @@ describe("createCodexHarnessClient", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(completed).toEqual(["thr_123"]);
+    expect(deltas).toEqual([{ sessionId: "thr_123", message: "Working on it." }]);
     expect(fake.writes).toEqual([
       {
         method: "initialize",
@@ -266,5 +279,59 @@ describe("createCodexHarnessClient", () => {
         turnId: "turn_stop"
       }
     });
+  });
+
+  test("ignores reasoning and command output deltas for echo streaming", async () => {
+    const fake = createFakeCodexProcess();
+    const deltas: Array<{ sessionId: string; message: string }> = [];
+
+    const client = createCodexHarnessClient(
+      {
+        command: "codex",
+        args: "app-server",
+        model: "gpt-5.4"
+      },
+      () => fake.process
+    );
+
+    client.on?.("sessionMessageDelta", ({ sessionId, message }) => deltas.push({ sessionId, message }));
+
+    const createPromise = client.createSession({
+      agentDefinition: "github-worker-agent",
+      initialPrompt: "Start working on issue 42.",
+      cwd: "/repos/frontend"
+    });
+
+    await waitFor(() => fake.writes.length === 1);
+    fake.send({ id: 1, result: { userAgent: "codex" } });
+    await waitFor(() => fake.writes.length === 3);
+    fake.send({ id: 2, result: { thread: { id: "thr_noise" } } });
+    await waitFor(() => fake.writes.length === 4);
+    fake.send({ id: 3, result: { turn: { id: "turn_noise", items: [], status: "in_progress", error: null } } });
+    await createPromise;
+
+    fake.send({
+      method: "item/reasoning/summaryTextDelta",
+      params: {
+        threadId: "thr_noise",
+        turnId: "turn_noise",
+        itemId: "item_reasoning",
+        summaryIndex: 0,
+        delta: "Thinking..."
+      }
+    });
+    fake.send({
+      method: "item/commandExecution/outputDelta",
+      params: {
+        threadId: "thr_noise",
+        turnId: "turn_noise",
+        itemId: "item_cmd",
+        delta: "npm test\n"
+      }
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(deltas).toEqual([]);
   });
 });

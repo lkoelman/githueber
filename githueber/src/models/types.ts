@@ -13,6 +13,7 @@ export type SessionInteractionKind =
   | "SESSION_STARTING"
   | "SESSION_STARTED"
   | "PROMPT_SENT"
+  | "MESSAGE_DELTA"
   | "SESSION_PAUSED"
   | "SESSION_COMPLETED";
 
@@ -182,7 +183,7 @@ export interface HarnessClientLike {
   createSession(request: HarnessSessionStartRequest): Promise<{ id: string }>;
   sendMessage(sessionId: string, payload: HarnessMessagePayload): Promise<void>;
   stopSession?(sessionId: string): Promise<void>;
-  on?(eventName: string, callback: (payload: { sessionId: string }) => void): void;
+  on?(eventName: string, callback: (payload: { sessionId: string; message?: string }) => void): void;
 }
 
 export interface SessionManagerLike {

@@ -51,7 +51,7 @@ function buildUserInput(text: string) {
 
 /** Implements the daemon-facing harness contract over the Codex app-server stdio transport. */
 class CodexStdioHarnessClient implements HarnessClientLike {
-  private readonly listeners = new Map<string, Set<(payload: { sessionId: string }) => void>>();
+  private readonly listeners = new Map<string, Set<(payload: { sessionId: string; message?: string }) => void>>();
   private readonly sessions = new Map<string, SessionRuntime>();
 
   constructor(
@@ -63,7 +63,7 @@ class CodexStdioHarnessClient implements HarnessClientLike {
   async connect(): Promise<void> {}
 
   /** Registers a listener for daemon lifecycle events emitted by the Codex client. */
-  on(eventName: string, callback: (payload: { sessionId: string }) => void): void {
+  on(eventName: string, callback: (payload: { sessionId: string; message?: string }) => void): void {
     const listeners = this.listeners.get(eventName) ?? new Set();
     listeners.add(callback);
     this.listeners.set(eventName, listeners);
@@ -270,6 +270,12 @@ class CodexStdioHarnessClient implements HarnessClientLike {
       case "turn/started":
         runtime.activeTurnId = notification.params.turn.id;
         break;
+      case "item/agentMessage/delta":
+        this.emit("sessionMessageDelta", {
+          sessionId: notification.params.threadId,
+          message: notification.params.delta
+        });
+        break;
       case "turn/completed":
         runtime.activeTurnId = undefined;
         runtime.pendingRequest = undefined;
@@ -339,7 +345,7 @@ class CodexStdioHarnessClient implements HarnessClientLike {
   }
 
   /** Emits one daemon lifecycle event from the Codex client. */
-  private emit(eventName: string, payload: { sessionId: string }): void {
+  private emit(eventName: string, payload: { sessionId: string; message?: string }): void {
     for (const listener of this.listeners.get(eventName) ?? []) {
       listener(payload);
     }

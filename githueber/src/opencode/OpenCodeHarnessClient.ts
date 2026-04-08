@@ -72,7 +72,7 @@ function findEventSeparator(buffer: string): { index: number; length: number } |
 
 /** Implements the daemon-facing harness contract over OpenCode's session HTTP API plus SSE events. */
 class OpenCodeHttpSseClient implements HarnessClientLike {
-  private readonly listeners = new Map<string, Set<(payload: { sessionId: string }) => void>>();
+  private readonly listeners = new Map<string, Set<(payload: { sessionId: string; message?: string }) => void>>();
   private readonly assistantMessageText = new Map<string, string>();
   private readonly sessionTurnMessages = new Map<string, Set<string>>();
   private eventStreamStarted = false;
@@ -229,6 +229,7 @@ class OpenCodeHttpSseClient implements HarnessClientLike {
       this.trackTurnMessage(sessionId, messageId);
       const key = sessionMessageKey(sessionId, messageId);
       this.assistantMessageText.set(key, `${this.assistantMessageText.get(key) ?? ""}${delta}`);
+      this.emit("sessionMessageDelta", { sessionId, message: delta });
       return;
     }
 
@@ -279,14 +280,14 @@ class OpenCodeHttpSseClient implements HarnessClientLike {
   }
 
   /** Notifies all listeners registered for one daemon lifecycle event. */
-  private emit(eventName: string, payload: { sessionId: string }): void {
+  private emit(eventName: string, payload: { sessionId: string; message?: string }): void {
     for (const listener of this.listeners.get(eventName) ?? []) {
       listener(payload);
     }
   }
 
   /** Registers a listener for sessionPaused or sessionCompleted events. */
-  on(eventName: string, callback: (payload: { sessionId: string }) => void): void {
+  on(eventName: string, callback: (payload: { sessionId: string; message?: string }) => void): void {
     const listeners = this.listeners.get(eventName) ?? new Set();
     listeners.add(callback);
     this.listeners.set(eventName, listeners);

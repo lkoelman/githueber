@@ -25,6 +25,19 @@ export class HarnessSessionManager implements SessionManagerLike {
 
   /** Subscribes to harness lifecycle events and fans them out to daemon listeners. */
   private bindEvents(): void {
+    this.harnessClient.on?.("sessionMessageDelta", ({ sessionId, message }) => {
+      if (!message) {
+        return;
+      }
+
+      this.emitSessionEvent({
+        direction: "INBOUND",
+        kind: "MESSAGE_DELTA",
+        message,
+        ...this.getSessionEventContext(sessionId)
+      });
+    });
+
     this.harnessClient.on?.("sessionPaused", ({ sessionId }) => {
       this.updateStatus(sessionId, "PAUSED_AWAITING_APPROVAL");
       this.emitSessionEvent({

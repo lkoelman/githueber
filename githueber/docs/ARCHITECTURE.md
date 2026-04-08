@@ -208,7 +208,7 @@ Supported commands are:
   - `parseCliArgs(argv) => CliCommand`
   - CLI commands: `start [--echo] [--harness <opencode|codex>]`, `sessions`, `poll`, `stop <sessionId>`, `config <key> <value>`
 
-The CLI does not implement daemon behavior itself. It translates shell arguments into an `IPCRequest`, opens a Unix socket connection to the daemon, sends one JSON message, and prints the JSON response or status message. For `poll`, the CLI renders a readable repository-by-repository summary of fetched issues and dispatches. For `start --echo`, it starts the daemon in-process and subscribes a terminal sink to the session interaction stream. `start --harness` overrides the configured default harness for repositories that do not define their own `harness`.
+The CLI does not implement daemon behavior itself. It translates shell arguments into an `IPCRequest`, opens a Unix socket connection to the daemon, sends one JSON message, and prints the JSON response or status message. For `poll`, the CLI renders a readable repository-by-repository summary of fetched issues and dispatches. For `start --echo`, it starts the daemon in-process and subscribes a terminal sink to the session interaction stream so assistant responses are rendered as they stream, alongside prompt and lifecycle markers. `start --harness` overrides the configured default harness for repositories that do not define their own `harness`.
 
 ## Component Interaction
 
