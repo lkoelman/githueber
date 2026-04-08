@@ -67,7 +67,7 @@
 ### 1. Configuration Layer
 
 - Responsibility: load and validate daemon configuration, especially repository-scoped settings such as owner/repo pairs, local checkout paths, labels, and agent mappings.
-- Implementation: [ConfigManager.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/config/ConfigManager.ts)
+- Implementation: [ConfigManager.ts](../src/config/ConfigManager.ts)
 - Primary interface:
   - `new ConfigManager(configPath)`
   - `getConfig(): DaemonConfig`
@@ -78,7 +78,7 @@
 ### 2. Shared Domain Model
 
 - Responsibility: define the types that move between the daemon subsystems.
-- Implementation: [types.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/models/types.ts)
+- Implementation: [types.ts](../src/models/types.ts)
 - Main interfaces:
   - `DaemonConfig`
   - `RepositoryConfig`
@@ -94,7 +94,7 @@ These types are the contract between configuration, polling, routing, ACP sessio
 ### 3. GitHub Integration Layer
 
 - Responsibility: talk to GitHub with `@octokit/rest`, poll issues and comments, and update labels in a rate-limit-friendly way.
-- Implementation: [GitHubPoller.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/github/GitHubPoller.ts)
+- Implementation: [GitHubPoller.ts](../src/github/GitHubPoller.ts)
 - Main interfaces:
   - `createOctokit(token)`
   - `resolveGitHubToken(owner, repo, envToken)`
@@ -109,7 +109,7 @@ There is one `GitHubPoller` instance per configured repository. Each poller is r
 ### 4. Deterministic Routing Layer
 
 - Responsibility: convert repository-scoped issue state into control-plane actions.
-- Implementation: [StateRouter.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/router/StateRouter.ts)
+- Implementation: [StateRouter.ts](../src/router/StateRouter.ts)
 - Main interface:
   - `evaluateIssueState(issue, latestComment?, activeSession?) => RouteDecision`
 
@@ -125,7 +125,7 @@ It uses repository-local labels and agent mappings from `DaemonConfig`.
 ### 5. Prompt Construction
 
 - Responsibility: synthesize the initialization prompt sent to OpenCode.
-- Implementation: [prompts.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/prompts.ts)
+- Implementation: [prompts.ts](../src/prompts.ts)
 - Main interface:
   - `buildInitializationPrompt(issue, agentName, worktreeRoot)`
 
@@ -135,10 +135,10 @@ The prompt builder converts a `GitHubIssue` into structured context, including r
 
 - Responsibility: create and manage coding sessions through harness-specific clients behind a shared daemon-facing session manager contract.
 - Implementation:
-  - [HarnessSessionManager.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/harness/HarnessSessionManager.ts)
-  - [MultiHarnessSessionManager.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/harness/MultiHarnessSessionManager.ts)
-  - [OpenCodeHarnessClient.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/opencode/OpenCodeHarnessClient.ts)
-  - [CodexHarnessClient.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/codex/CodexHarnessClient.ts)
+  - [HarnessSessionManager.ts](../src/harness/HarnessSessionManager.ts)
+  - [MultiHarnessSessionManager.ts](../src/harness/MultiHarnessSessionManager.ts)
+  - [OpenCodeHarnessClient.ts](../src/opencode/OpenCodeHarnessClient.ts)
+  - [CodexHarnessClient.ts](../src/codex/CodexHarnessClient.ts)
 - Main interfaces:
   - `createOpenCodeHarnessClient(endpoint, fetchImpl?)`
   - `createCodexHarnessClient(config, spawnImpl?)`
@@ -158,7 +158,7 @@ The OpenCode harness client opens `/global/event`, translates session turn updat
 ### 7. Daemon Coordinator
 
 - Responsibility: wire pollers, router, session managers, and label updates into one control loop.
-- Implementation: [daemon.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/daemon.ts)
+- Implementation: [daemon.ts](../src/daemon.ts)
 - Main interfaces:
   - `start()`
   - `stop()`
@@ -182,8 +182,8 @@ On process shutdown, it stops polling and closes all tracked sessions before the
 
 - Responsibility: expose daemon control operations locally over a Unix domain socket.
 - Implementation:
-  - [IPCServer.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/ipc/IPCServer.ts)
-  - [handler.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/ipc/handler.ts)
+  - [IPCServer.ts](../src/ipc/IPCServer.ts)
+  - [handler.ts](../src/ipc/handler.ts)
 - Main interfaces:
   - `IPCServer.start()`
   - `IPCServer.stop()`
@@ -202,8 +202,8 @@ Supported commands are:
 
 - Responsibility: provide operator access to the running daemon without reaching into process internals.
 - Implementation:
-  - [src/cli/index.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/cli/index.ts)
-  - [src/cli/args.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/cli/args.ts)
+  - [src/cli/index.ts](../src/cli/index.ts)
+  - [src/cli/args.ts](../src/cli/args.ts)
 - Main interfaces:
   - `parseCliArgs(argv) => CliCommand`
   - CLI commands: `start [--echo] [--harness <opencode|codex>]`, `sessions`, `poll`, `stop <sessionId>`, `config <key> <value>`
@@ -236,10 +236,10 @@ The CLI does not implement daemon behavior itself. It translates shell arguments
 The CLI-to-daemon path is local and synchronous:
 
 1. The operator runs `gh-buddy sessions`, `gh-buddy poll`, `gh-buddy stop <id>`, or `gh-buddy config <key> <value>`.
-2. [args.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/cli/args.ts) parses the command into an `IPCRequest`.
-3. [src/cli/index.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/cli/index.ts) opens a Unix socket connection to the path configured by `GH_BUDDY_SOCKET_PATH` or the default socket path.
-4. [IPCServer.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/ipc/IPCServer.ts) accepts the connection and parses the JSON payload.
-5. [handler.ts](/home/lkoel/code/agents-config/opencode-gh-buddy/src/ipc/handler.ts) dispatches the request to the `DaemonCore`-backed target:
+2. [args.ts](../src/cli/args.ts) parses the command into an `IPCRequest`.
+3. [src/cli/index.ts](../src/cli/index.ts) opens a Unix socket connection to the path configured by `GH_BUDDY_SOCKET_PATH` or the default socket path.
+4. [IPCServer.ts](../src/ipc/IPCServer.ts) accepts the connection and parses the JSON payload.
+5. [handler.ts](../src/ipc/handler.ts) dispatches the request to the `DaemonCore`-backed target:
    - `LIST_SESSIONS` reads the active session table
    - `STOP_SESSION` aborts a session by session id
    - `TRIGGER_POLL` forces an immediate poll cycle across repositories and returns the fetched/dispatched issue summary
