@@ -46,7 +46,7 @@ describe("install script", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout.toString().trim()).toBe(
-      "https://codeload.github.com/lkoelman/agents-config/tar.gz/refs/heads/main"
+      "https://codeload.github.com/lkoelman/githueber/tar.gz/refs/heads/main"
     );
   });
 

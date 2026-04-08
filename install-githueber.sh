@@ -2,7 +2,7 @@
 set -euo pipefail
 
 readonly REPO_OWNER="lkoelman"
-readonly REPO_NAME="agents-config"
+readonly REPO_NAME="githueber"
 readonly DEFAULT_REF="main"
 readonly DEFAULT_HARNESS="opencode"
 
@@ -12,7 +12,7 @@ REF="$DEFAULT_REF"
 
 usage() {
   cat <<'EOF'
-Usage: curl -fsSL https://raw.githubusercontent.com/lkoelman/agents-config/main/install-githueber.sh | bash -s -- [options]
+Usage: curl -fsSL https://raw.githubusercontent.com/lkoelman/githueber/main/install-githueber.sh | bash -s -- [options]
 
 Options:
   --harness <opencode|codex|claude|gemini>  Install harness assets for the selected harness
@@ -137,7 +137,7 @@ download_and_install() {
   curl -fsSL "$archive_url" -o "$archive_path"
   tar -xzf "$archive_path" -C "$work_dir"
 
-  for extracted_root in "$work_dir"/agents-config-*; do
+  for extracted_root in "$work_dir"/githueber-*; do
     if [[ -d "$extracted_root" ]]; then
       package_dir="$extracted_root/githueber"
       break
