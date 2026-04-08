@@ -16,19 +16,18 @@ Improvements
 - error message when running `gbr` command and daemon is not active
     - gbr sessions -> `connect ENOENT /tmp/githueber.sock`
 
-Support Opencode
-- (IMPROVEMENT) use opencode SDK
 
-Support Codex
-- use app server (https://developers.openai.com/codex/app-server)
+Push notifications
+- see github issue
 
-Support Claude
-- the 'channels' approach seems good: easy to jump into an existing session
-
-Bug: named and resumable sessions
+Named and resumable sessions
 - the OpenCode sessions created by the daemon are not listed when running `opencode session list`
 - it is possible that the OpenCode HTTP endpoint does not have the same rich session management features as the SDK
 - create a second OpenCode client (next to `OpenCodeHttpSseClient`) that uses https://opencode.ai/docs/sdk/
+- approaches:
+    - OpenCode: use opencode SDK instead of HTTP+SSE
+    - Codex: use app server (https://developers.openai.com/codex/app-server)
+    - Claude: the 'channels' approach seems good: easy to jump into an existing session
 
 Attach to or Follow session
 - add comand `gbr attach/follow <session-id>` so we can see what the agent is doing

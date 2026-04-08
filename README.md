@@ -109,34 +109,19 @@ Press `Ctrl+C` to stop the daemon gracefully. It will print a shutdown message, 
 
 ## CLI
 
-The CLI talks to the daemon over a Unix domain socket. The default socket path is `/tmp/githueber.sock`.
-
-Run commands from the package directory:
-
-```bash
-gbr harness-install codex
-gbr start
-gbr start --harness codex
-gbr start --echo
-gbr --verbose start
-gbr sessions
-gbr poll
-gbr stop <session-id>
-gbr config polling.intervalMs 60000
-```
-
 The `gbr` command can be replaced by `bun run src/cli/index.ts` during development, or by `bun run dist/cli.js` after building.
+The CLI talks to the daemon over a Unix domain socket. The default socket path is `/tmp/githueber.sock`.
 
 Available commands:
 
-- `harness-install <opencode|codex|claude|gemini>`: install generated agent and skill definitions into the selected harness's user-home directories
-- `start`: start the daemon service directly from the CLI
+- `gbr harness-install <opencode|codex|claude|gemini>`: install generated agent and skill definitions into the selected harness's user-home directories
+- `gbr start`: start the daemon service directly from the CLI
   - `--harness <opencode|codex>`: override the configured default harness for repositories that do not set their own `harness`
   - `--echo`: stream assistant response text to stdout in real time while keeping lifecycle markers for prompts, pauses, and completion
-- `sessions`: list active ACP sessions, including repository key and owner/repo identity
-- `poll`: trigger an immediate GitHub poll cycle across all configured repositories and print the fetched and dispatched issues
-- `stop <session-id>`: stop a tracked ACP session by session id
-- `config <key> <value>`: change an in-memory config value in the running daemon
+- `gbr sessions`: list active ACP sessions, including repository key and owner/repo identity
+- `gbr poll`: trigger an immediate GitHub poll cycle across all configured repositories and print the fetched and dispatched issues
+- `gbr stop <session-id>`: stop a tracked ACP session by session id
+- `gbr config <key> <value>`: change an in-memory config value in the running daemon
 
 Global options:
 
@@ -152,6 +137,7 @@ export GITHUBER_SOCKET_PATH=/custom/path/githueber.sock
 
 ```yaml
 repositories:
+
   frontend:
     owner: your-org
     repo: frontend-repo
@@ -167,6 +153,7 @@ repositories:
     agent_mapping:
       bug-fix: github-worker-agent
       epic: github-orchestrator-agent
+
   backend:
     owner: your-org
     repo: backend-repo
