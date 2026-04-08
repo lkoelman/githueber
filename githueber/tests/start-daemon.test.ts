@@ -143,7 +143,7 @@ describe("createSessionManagerForConfig", () => {
     polling: { intervalMs: 1000 },
     opencode: { endpoint: "http://127.0.0.1:9000" },
     codex: { command: "codex", args: "app-server", model: "gpt-5.4" },
-    ipc: { socketPath: "/tmp/opencode-gh-buddy.sock" },
+    ipc: { socketPath: "/tmp/githueber.sock" },
     logging: { level: "info" },
     isolation: { worktrees: null }
   };

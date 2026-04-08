@@ -60,7 +60,7 @@ export async function canAccessRepository(
     headers: {
       accept: "application/vnd.github+json",
       authorization: `Bearer ${token}`,
-      "user-agent": "opencode-gh-buddy"
+      "user-agent": "githueber"
     }
   });
 

@@ -183,7 +183,7 @@ export class ConfigManager {
         socketPath:
           typeof ipc.socket_path === "string" && ipc.socket_path
             ? ipc.socket_path
-            : "/tmp/opencode-gh-buddy.sock"
+            : "/tmp/githueber.sock"
       },
       logging: {
         level: typeof logging.log_level === "string" && logging.log_level ? logging.log_level : "info"

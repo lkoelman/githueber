@@ -83,7 +83,7 @@ function sendCommand(socketPath: string, request: object): Promise<IPCResponse> 
 
 /** Entry point for the operator CLI, covering both daemon startup and IPC commands. */
 async function main(): Promise<void> {
-  const socketPath = process.env.GH_BUDDY_SOCKET_PATH ?? "/tmp/opencode-gh-buddy.sock";
+  const socketPath = process.env.GITHUBER_SOCKET_PATH ?? "/tmp/githueber.sock";
 
   if (process.argv.length <= 2) {
     console.log(formatUsage());

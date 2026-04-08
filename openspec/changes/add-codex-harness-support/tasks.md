@@ -25,5 +25,5 @@
 
 ## 5. Documentation and examples
 
-- [x] 5.1 Update `opencode-gh-buddy/README.md` with supported harnesses, Codex setup requirements, and `gbr start --harness` usage.
-- [x] 5.2 Update `opencode-gh-buddy/docs/ARCHITECTURE.md` and the example config file to describe the harness abstraction, config precedence, and Codex app server integration.
+- [x] 5.1 Update `githueber/README.md` with supported harnesses, Codex setup requirements, and `gbr start --harness` usage.
+- [x] 5.2 Update `githueber/docs/ARCHITECTURE.md` and the example config file to describe the harness abstraction, config precedence, and Codex app server integration.

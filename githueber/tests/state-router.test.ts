@@ -58,7 +58,7 @@ const config: DaemonConfig = {
     endpoint: "http://127.0.0.1:9000"
   },
   ipc: {
-    socketPath: "/tmp/opencode-gh-buddy.sock"
+    socketPath: "/tmp/githueber.sock"
   },
   logging: {
     level: "info"
@@ -96,7 +96,7 @@ describe("StateRouter", () => {
     const router = new StateRouter({
       ...config,
       isolation: {
-        worktrees: "/tmp/gh-buddy-worktrees"
+        worktrees: "/tmp/githueber-worktrees"
       }
     });
     const decision = router.evaluateIssueState(issue);
@@ -104,7 +104,7 @@ describe("StateRouter", () => {
     expect(decision.action).toBe("START_SESSION");
     expect(decision.promptContext).toContain("PRIMARY REPOSITORY PATH: /repos/frontend");
     expect(decision.promptContext).toContain(
-      "REPOSITORY PATH: /tmp/gh-buddy-worktrees/acme-frontend-issue-42"
+      "REPOSITORY PATH: /tmp/githueber-worktrees/acme-frontend-issue-42"
     );
     expect(decision.promptContext).toContain("Create or reuse the git worktree");
   });

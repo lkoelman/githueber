@@ -114,7 +114,7 @@ describe("createACPClient", () => {
       {
         url: "http://127.0.0.1:9000/session",
         method: "POST",
-        body: { title: "gh-buddy:build" }
+        body: { title: "githueber:build" }
       },
       {
         url: "http://127.0.0.1:9000/session/ses_123/prompt_async",

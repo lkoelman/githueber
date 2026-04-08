@@ -1,6 +1,6 @@
 ## Why
 
-`opencode-gh-buddy` currently hard-codes OpenCode as its only coding harness, which makes the daemon unusable in repositories that need to run through the OpenAI Codex app server instead. Harness choice now needs to become a first-class configuration concern so operators can adopt Codex incrementally without forking the daemon or maintaining separate entrypoints.
+`githueber` currently hard-codes OpenCode as its only coding harness, which makes the daemon unusable in repositories that need to run through the OpenAI Codex app server instead. Harness choice now needs to become a first-class configuration concern so operators can adopt Codex incrementally without forking the daemon or maintaining separate entrypoints.
 
 ## What Changes
 
@@ -19,6 +19,6 @@
 
 ## Impact
 
-- Affected code: `opencode-gh-buddy/src/acp/ACPSessionManager.ts`, `opencode-gh-buddy/src/startDaemon.ts`, `opencode-gh-buddy/src/config/ConfigManager.ts`, `opencode-gh-buddy/src/models/types.ts`, `opencode-gh-buddy/src/cli/args.ts`, `opencode-gh-buddy/src/cli/index.ts`, prompt/session event plumbing, config examples, and package docs.
+- Affected code: `githueber/src/acp/ACPSessionManager.ts`, `githueber/src/startDaemon.ts`, `githueber/src/config/ConfigManager.ts`, `githueber/src/models/types.ts`, `githueber/src/cli/args.ts`, `githueber/src/cli/index.ts`, prompt/session event plumbing, config examples, and package docs.
 - External systems: OpenCode server remains supported; Codex app server becomes a new supported runtime dependency.
 - Dependencies: the implementation will need generated Codex app server protocol types or JSON schema artifacts sourced from the Codex CLI version used by operators.

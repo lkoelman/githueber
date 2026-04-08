@@ -1,0 +1,16 @@
+[Unit]
+Description=Githueber Daemon
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/githueber
+ExecStart=/home/lkoel/.bun/bin/bun run /opt/githueber/dist/index.js
+Restart=on-failure
+RestartSec=5
+EnvironmentFile=/etc/githueber/.env
+ProtectSystem=full
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

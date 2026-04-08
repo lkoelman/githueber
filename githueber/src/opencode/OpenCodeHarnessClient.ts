@@ -300,7 +300,7 @@ class OpenCodeHttpSseClient implements HarnessClientLike {
     const sessionResponse = await this.request("./session", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ title: `gh-buddy:${request.agentDefinition}` })
+      body: JSON.stringify({ title: `githueber:${request.agentDefinition}` })
     });
 
     const session = (await sessionResponse.json()) as { id: string };

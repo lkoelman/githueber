@@ -133,7 +133,7 @@ export function registerShutdownHandlers(
 
 /** Builds the runtime graph from config and starts the daemon plus its IPC control socket. */
 export async function startDaemon(options: StartDaemonOptions = {}): Promise<void> {
-  const configPath = process.env.GH_BUDDY_CONFIG ?? "./config/gh-buddy-config.yaml";
+  const configPath = process.env.GITHUBER_CONFIG ?? "./config/githueber-config.yaml";
   const configManager = new ConfigManager(configPath);
   const config = configManager.getConfig();
 

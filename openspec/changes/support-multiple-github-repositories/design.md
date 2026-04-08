@@ -1,6 +1,6 @@
 ## Context
 
-`opencode-gh-buddy` currently models the world as one GitHub repository, one local checkout, one poller, and session records keyed only by issue number. That is sufficient for a single target repository, but it does not scale to a daemon instance that should monitor several repositories at once because issue numbers collide across repositories, prompt context lacks repository identity, and CLI output cannot distinguish where a session belongs.
+`githueber` currently models the world as one GitHub repository, one local checkout, one poller, and session records keyed only by issue number. That is sufficient for a single target repository, but it does not scale to a daemon instance that should monitor several repositories at once because issue numbers collide across repositories, prompt context lacks repository identity, and CLI output cannot distinguish where a session belongs.
 
 This change crosses configuration, GitHub polling, routing, session bookkeeping, prompt generation, and IPC/CLI output. The implementation therefore needs an explicit repository scope that becomes part of the daemon's core data model instead of an incidental config detail.
 

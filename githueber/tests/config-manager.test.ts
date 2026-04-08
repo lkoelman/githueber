@@ -46,14 +46,14 @@ opencode:
 polling:
   interval_ms: 300000
 ipc:
-  socket_path: "/tmp/opencode-gh-buddy.sock"
+  socket_path: "/tmp/githueber.sock"
 isolation:
-  worktrees: "/tmp/gh-buddy-worktrees"
+  worktrees: "/tmp/githueber-worktrees"
 `;
 
 describe("ConfigManager", () => {
   test("loads a multi-repository config into a normalized repository map", () => {
-    const dir = mkdtempSync(join(tmpdir(), "gh-buddy-config-"));
+    const dir = mkdtempSync(join(tmpdir(), "githueber-config-"));
     const configPath = join(dir, "config.yaml");
     writeFileSync(configPath, sampleConfig);
 
@@ -78,8 +78,8 @@ describe("ConfigManager", () => {
     });
     expect(config.polling.intervalMs).toBe(300000);
     expect(config.execution.approvalComment).toBe("/approve");
-    expect(config.ipc.socketPath).toBe("/tmp/opencode-gh-buddy.sock");
-    expect(config.isolation.worktrees).toBe("/tmp/gh-buddy-worktrees");
+    expect(config.ipc.socketPath).toBe("/tmp/githueber.sock");
+    expect(config.isolation.worktrees).toBe("/tmp/githueber-worktrees");
     expect(config.execution.harness).toBe("opencode");
     expect(config.repositories.frontend.harness).toBeUndefined();
     expect(config.opencode.endpoint).toBe("http://127.0.0.1:9000");
@@ -88,7 +88,7 @@ describe("ConfigManager", () => {
   });
 
   test("supports a per-repository harness override and Codex config", () => {
-    const dir = mkdtempSync(join(tmpdir(), "gh-buddy-harness-config-"));
+    const dir = mkdtempSync(join(tmpdir(), "githueber-harness-config-"));
     const configPath = join(dir, "config.yaml");
     writeFileSync(
       configPath,
@@ -118,7 +118,7 @@ codex:
   });
 
   test("defaults the daemon harness to opencode when omitted", () => {
-    const dir = mkdtempSync(join(tmpdir(), "gh-buddy-default-harness-"));
+    const dir = mkdtempSync(join(tmpdir(), "githueber-default-harness-"));
     const configPath = join(dir, "config.yaml");
     writeFileSync(configPath, sampleConfig.replace('  harness: "opencode"\n', ""));
 
@@ -130,7 +130,7 @@ codex:
   });
 
   test("rejects unsupported harness names", () => {
-    const dir = mkdtempSync(join(tmpdir(), "gh-buddy-invalid-harness-"));
+    const dir = mkdtempSync(join(tmpdir(), "githueber-invalid-harness-"));
     const configPath = join(dir, "config.yaml");
     writeFileSync(
       configPath,
@@ -145,7 +145,7 @@ codex:
   });
 
   test("requires Codex config only when a repository resolves to codex", () => {
-    const dir = mkdtempSync(join(tmpdir(), "gh-buddy-missing-codex-"));
+    const dir = mkdtempSync(join(tmpdir(), "githueber-missing-codex-"));
     const configPath = join(dir, "config.yaml");
     writeFileSync(
       configPath,
@@ -160,17 +160,17 @@ codex:
   });
 
   test("treats false or null worktree config as disabled", () => {
-    const dir = mkdtempSync(join(tmpdir(), "gh-buddy-worktrees-disabled-"));
+    const dir = mkdtempSync(join(tmpdir(), "githueber-worktrees-disabled-"));
     const falsePath = join(dir, "false.yaml");
     const nullPath = join(dir, "null.yaml");
 
     writeFileSync(
       falsePath,
-      sampleConfig.replace('  worktrees: "/tmp/gh-buddy-worktrees"', "  worktrees: false")
+      sampleConfig.replace('  worktrees: "/tmp/githueber-worktrees"', "  worktrees: false")
     );
     writeFileSync(
       nullPath,
-      sampleConfig.replace('  worktrees: "/tmp/gh-buddy-worktrees"', "  worktrees: null")
+      sampleConfig.replace('  worktrees: "/tmp/githueber-worktrees"', "  worktrees: null")
     );
 
     expect(new ConfigManager(falsePath).getConfig().isolation.worktrees).toBeNull();
@@ -180,11 +180,11 @@ codex:
   });
 
   test("rejects relative worktree directories", () => {
-    const dir = mkdtempSync(join(tmpdir(), "gh-buddy-invalid-worktrees-"));
+    const dir = mkdtempSync(join(tmpdir(), "githueber-invalid-worktrees-"));
     const configPath = join(dir, "config.yaml");
     writeFileSync(
       configPath,
-      sampleConfig.replace('  worktrees: "/tmp/gh-buddy-worktrees"', '  worktrees: "relative/worktrees"')
+      sampleConfig.replace('  worktrees: "/tmp/githueber-worktrees"', '  worktrees: "relative/worktrees"')
     );
 
     expect(() => new ConfigManager(configPath)).toThrow(
@@ -195,7 +195,7 @@ codex:
   });
 
   test("rejects configs that do not define repositories", () => {
-    const dir = mkdtempSync(join(tmpdir(), "gh-buddy-invalid-config-"));
+    const dir = mkdtempSync(join(tmpdir(), "githueber-invalid-config-"));
     const configPath = join(dir, "config.yaml");
     writeFileSync(
       configPath,

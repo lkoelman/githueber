@@ -125,8 +125,8 @@ describe("createCodexHarnessClient", () => {
         id: 1,
         params: {
           clientInfo: {
-            name: "opencode-gh-buddy",
-            title: "OpenCode GitHub Buddy",
+            name: "githueber",
+            title: "Githueber",
             version: "0.1.0"
           }
         }

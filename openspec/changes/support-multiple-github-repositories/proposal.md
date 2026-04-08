@@ -1,6 +1,6 @@
 ## Why
 
-`opencode-gh-buddy` currently assumes a single GitHub repository and a single local checkout in its configuration and routing flow. That blocks using one daemon instance to watch and dispatch work across multiple repositories, which is the next practical step if the daemon is meant to act as a persistent control plane for a broader agent pool.
+`githueber` currently assumes a single GitHub repository and a single local checkout in its configuration and routing flow. That blocks using one daemon instance to watch and dispatch work across multiple repositories, which is the next practical step if the daemon is meant to act as a persistent control plane for a broader agent pool.
 
 ## What Changes
 
@@ -21,7 +21,7 @@ None.
 
 ## Impact
 
-- `opencode-gh-buddy` configuration parsing and validation
+- `githueber` configuration parsing and validation
 - GitHub polling and label update logic
 - Session tracking, prompt generation, and IPC/CLI output
 - OpenCode agent context passed through ACP

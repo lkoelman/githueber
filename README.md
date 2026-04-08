@@ -1,4 +1,4 @@
-# opencode-gh-buddy
+# githueber
 
 TypeScript/Bun daemon package that bridges GitHub issue state to coding harnesses, currently OpenCode and the OpenAI Codex app server.
 
@@ -18,22 +18,22 @@ TypeScript/Bun daemon package that bridges GitHub issue state to coding harnesse
 - Harness selection per daemon and per repository
 - Repository-scoped issue routing and prompt generation
 - Bidirectional session management for OpenCode over HTTP plus SSE, and for Codex over app-server stdio JSON-RPC
-- Unix domain socket IPC server and `gh-buddy` CLI
+- Unix domain socket IPC server and `gbr` CLI
 - Example config and systemd unit scaffold
 
 ## Installation
 
 ```bash
-cd agents-config/opencode-gh-buddy
+cd agents-config/githueber
 
 # install dependencies
 bun install
 
 # create config
-cp config/gh-buddy-config.example.yaml config/gh-buddy-config.yaml
+cp config/githueber-config.example.yaml config/githueber-config.yaml
 ```
 
-Edit `config/gh-buddy-config.yaml` and define every repository under `repositories:`. Each repository entry needs:
+Edit `config/githueber-config.yaml` and define every repository under `repositories:`. Each repository entry needs:
 
 - `owner`
 - `repo`
@@ -54,7 +54,7 @@ Export the daemon environment:
 
 ```bash
 export GITHUB_TOKEN=your_token_here
-export GH_BUDDY_CONFIG=/path/to/gh-buddy-config.yaml
+export GITHUBER_CONFIG=/path/to/githueber-config.yaml
 ```
 
 If `GITHUB_TOKEN` is unset or cannot access a configured repository, the daemon falls back to `gh auth token`.
@@ -104,7 +104,7 @@ Press `Ctrl+C` to stop the daemon gracefully. It will print a shutdown message, 
 
 ## CLI
 
-The CLI talks to the daemon over a Unix domain socket. The default socket path is `/tmp/opencode-gh-buddy.sock`.
+The CLI talks to the daemon over a Unix domain socket. The default socket path is `/tmp/githueber.sock`.
 
 Run commands from the package directory:
 
@@ -138,7 +138,7 @@ Global options:
 If the daemon uses a non-default socket path:
 
 ```bash
-export GH_BUDDY_SOCKET_PATH=/custom/path/opencode-gh-buddy.sock
+export GITHUBER_SOCKET_PATH=/custom/path/githueber.sock
 ```
 
 ## Multi-Repository Config Shape
@@ -208,12 +208,12 @@ cp -R /tmp/codex-app-server-schema src/codex/generated
 
 ## systemd
 
-An example unit file is provided at `systemd/opencode-gh-buddy.service`.
+An example unit file is provided at `systemd/githueber.service`.
 
 Typical deployment flow:
 
 ```bash
-cd agents-config/opencode-gh-buddy
+cd agents-config/githueber
 bun install
 bun run build:all
 ```

@@ -59,7 +59,7 @@ const config: DaemonConfig = {
     endpoint: "http://127.0.0.1:9000"
   },
   ipc: {
-    socketPath: "/tmp/opencode-gh-buddy.sock"
+    socketPath: "/tmp/githueber.sock"
   },
   logging: {
     level: "info"

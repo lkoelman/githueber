@@ -1,6 +1,6 @@
 # Architecture
 
-`opencode-gh-buddy` is a Bun/TypeScript daemon that acts as the deterministic control plane between GitHub and coding harnesses. GitHub is the system of record for work state and human approval, while the selected harness performs the non-deterministic agent work. The daemon polls GitHub, decides what should happen next, starts or resumes agent sessions, and exposes local operational control through a Unix domain socket and CLI.
+`githueber` is a Bun/TypeScript daemon that acts as the deterministic control plane between GitHub and coding harnesses. GitHub is the system of record for work state and human approval, while the selected harness performs the non-deterministic agent work. The daemon polls GitHub, decides what should happen next, starts or resumes agent sessions, and exposes local operational control through a Unix domain socket and CLI.
 
 ## System Diagram
 
@@ -13,7 +13,7 @@
                                      | poll state / update labels
                                      |
                    +-----------------+------------------+
-                   |       opencode-gh-buddy daemon     |
+                   |       githueber daemon     |
                    |                                    |
                    |  +------------------------------+  |
                    |  | ConfigManager                |  |
@@ -57,7 +57,7 @@
                   +-------------------+      |
                                              |
                                  +-----------+-----------+
-                                 | gh-buddy CLI          |
+                                 | gbr CLI                |
                                  | sessions/poll/stop    |
                                  +-----------------------+
 ```
@@ -235,9 +235,9 @@ The CLI does not implement daemon behavior itself. It translates shell arguments
 
 The CLI-to-daemon path is local and synchronous:
 
-1. The operator runs `gh-buddy sessions`, `gh-buddy poll`, `gh-buddy stop <id>`, or `gh-buddy config <key> <value>`.
+1. The operator runs `gbr sessions`, `gbr poll`, `gbr stop <id>`, or `gbr config <key> <value>`.
 2. [args.ts](../src/cli/args.ts) parses the command into an `IPCRequest`.
-3. [src/cli/index.ts](../src/cli/index.ts) opens a Unix socket connection to the path configured by `GH_BUDDY_SOCKET_PATH` or the default socket path.
+3. [src/cli/index.ts](../src/cli/index.ts) opens a Unix socket connection to the path configured by `GITHUBER_SOCKET_PATH` or the default socket path.
 4. [IPCServer.ts](../src/ipc/IPCServer.ts) accepts the connection and parses the JSON payload.
 5. [handler.ts](../src/ipc/handler.ts) dispatches the request to the `DaemonCore`-backed target:
    - `LIST_SESSIONS` reads the active session table
@@ -263,4 +263,4 @@ The execution-plane definitions themselves live outside this package, in the sel
 - the `github-cli` skill
 - any additional OpenCode-side tools or skills
 
-`opencode-gh-buddy` therefore should be read as the control-plane package, not the full agent runtime.
+`githueber` therefore should be read as the control-plane package, not the full agent runtime.

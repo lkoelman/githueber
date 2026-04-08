@@ -60,7 +60,7 @@ codex:
   model: "gpt-5.4"
 
 ipc:
-  socket_path: "/tmp/opencode-gh-buddy.sock"
+  socket_path: "/tmp/githueber.sock"
 
 isolation:
   # Set to an absolute parent directory to create per-issue worktrees,

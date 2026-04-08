@@ -169,8 +169,8 @@ class CodexStdioHarnessClient implements HarnessClientLike {
       id: runtime.nextRequestId++,
       params: {
         clientInfo: {
-          name: "opencode-gh-buddy",
-          title: "OpenCode GitHub Buddy",
+          name: "githueber",
+          title: "Githueber",
           version: "0.1.0"
         }
       } satisfies InitializeParams

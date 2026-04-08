@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "opencode-gh-buddy",
+      "name": "githueber",
       "dependencies": {
         "@agentclientprotocol/sdk": "^0.18.1",
         "@octokit/rest": "^22.0.1",

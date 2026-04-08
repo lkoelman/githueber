@@ -1,6 +1,6 @@
 ## Context
 
-`opencode-gh-buddy` currently assumes every routed GitHub issue is executed through one OpenCode-specific client implementation in `src/acp/ACPSessionManager.ts`. The daemon startup path constructs exactly one OpenCode client from `acp.endpoint`, and the CLI `start` command only toggles `--echo`. That makes harness selection impossible at configuration time and couples session lifecycle handling to OpenCode transport details.
+`githueber` currently assumes every routed GitHub issue is executed through one OpenCode-specific client implementation in `src/acp/ACPSessionManager.ts`. The daemon startup path constructs exactly one OpenCode client from `acp.endpoint`, and the CLI `start` command only toggles `--echo`. That makes harness selection impossible at configuration time and couples session lifecycle handling to OpenCode transport details.
 
 Supporting Codex is broader than adding one extra endpoint. The Codex app server uses a different protocol surface than the existing OpenCode HTTP plus SSE integration: JSON-RPC 2.0 messages over `stdio` by default, with client initialization, thread and turn lifecycle methods, and server-driven approval or user-input requests. The official Codex docs also state that protocol types should be generated from the installed Codex CLI version via `codex app-server generate-ts` or `codex app-server generate-json-schema`, so the daemon should not hand-maintain that schema.
 
