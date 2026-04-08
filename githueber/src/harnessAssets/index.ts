@@ -206,7 +206,7 @@ You will receive a structured initialization prompt with the target issue number
 2. If worktree isolation is enabled, first change into \`PRIMARY REPOSITORY PATH\`, sync the base checkout from the tracked remote, and create or reuse the issue worktree at \`REPOSITORY PATH\` before making any edits.
 3. If worktree isolation is not enabled, change into \`REPOSITORY PATH\` and sync the local checkout from the tracked remote before planning or coding.
 4. Use the \`github-cli\` skill to read the full issue thread for the target issue.
-5. Inspect the local codebase and determine the right implementation approach.
+5. Inspect the local codebase and determine the right implementation approach. Use the plan mode or subagent if available.
 6. Post a plan comment to the issue.
 The final line of the plan comment must be exactly \`[AWAITING_APPROVAL]\`.
 7. Stop execution after posting the plan. Do not write code before approval arrives through ACP.
