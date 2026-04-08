@@ -5,7 +5,7 @@
 <h1 align="center">Githueber</h1>
 
 <p align="center">
-  TypeScript/Bun daemon package that bridges GitHub issue state to coding harnesses, currently OpenCode and the OpenAI Codex app server.
+  Use GitHub as frontend to orchestrate your coding harness (Claude, Codex, OpenCode)
 </p>
 
 
@@ -17,29 +17,25 @@
   <img alt="GitHub License" src="https://img.shields.io/github/license/lkoelman/githueber">
 </p>
 
+Githueber lets you use GitHub as a frontend to manage your coding harness and sessions right on your local device. The philosophy is "GitHub is already a very good UI/UX for managing a repo, its issues and PRs. S let's use it as the control center for coordinating your agents".
+
+## Why Githueber?
+
+You may be interested in Githueber if:
+
+- you've already spent effort configuring and tweaking your coding harness, and don't want to enter a new config rabbithole like OpenClaw
+- you don't want a shiny new frontend to manage your coding harness and agents: the GitHub UI offers everything you need to manage a repo and (agentic) collaborators
+- you're a serious developer and want something simpler than OpenClaw focused on just development
 
 ## Requirements
 
-- Bun installed
 - GitHub CLI authenticated with `gh auth login`
-- For the `opencode` harness: a running OpenCode server started with `opencode acp`
-- For the `codex` harness: the Codex CLI installed locally so the daemon can launch `codex app-server`
+- supported harness installed (OpenCode, Codex, Claude Code [WIP])
 - One local checkout per configured repository
-- Optional absolute parent directory for issue worktrees when `isolation.worktrees` is enabled
-- `GITHUB_TOKEN` available to the daemon, or `gh auth token` available as fallback
-
-## What it provides
-
-- Multi-repository config loading for one daemon instance
-- Harness selection per daemon and per repository
-- Repository-scoped issue routing and prompt generation
-- Bidirectional session management for OpenCode over HTTP plus SSE, and for Codex over app-server stdio JSON-RPC
-- Unix domain socket IPC server and `gbr` CLI
-- Example config and systemd unit scaffold
 
 ## Installation
 
-One-line install for the package, CLI, and default OpenCode harness assets:
+Install `gbr`, the Githueber CLI:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/lkoelman/githueber/main/install-githueber.sh | bash
@@ -48,14 +44,14 @@ curl -fsSL https://raw.githubusercontent.com/lkoelman/githueber/main/install-git
 Common options:
 
 ```bash
-# install without prompts
+# install without prompting for confirmation
 curl -fsSL https://raw.githubusercontent.com/lkoelman/githueber/main/install-githueber.sh | bash -s -- -y
 
 # install a different harness asset set
 curl -fsSL https://raw.githubusercontent.com/lkoelman/githueber/main/install-githueber.sh | bash -s -- --harness codex
 ```
 
-The installer downloads the repository archive, checks whether `gh` and `bun` are installed, offers to install missing dependencies, then runs `bun install`, `bun run build:all`, `bun link`, and `gbr harness-install` for the selected harness. `-y` accepts dependency installation prompts automatically. `gh` installation currently supports Homebrew, `apt-get`, `dnf`, and `pacman`.
+The installer installs and links the `gbr` command globally using `bun link`.
 
 Manual install remains available:
 
@@ -126,12 +122,6 @@ opencode acp --port 9000
 ```bash
 # after global install using `bun link`:
 gbr start [--echo]
-
-# or in development mode
-bun run src/index.ts
-
-# or after a local build:
-bun run dist/index.js
 ```
 
 Press `Ctrl+C` to stop the daemon gracefully. It will print a shutdown message, stop polling, and close tracked ACP sessions before exiting.
