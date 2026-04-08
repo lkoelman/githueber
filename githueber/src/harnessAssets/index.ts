@@ -203,8 +203,8 @@ You will receive a structured initialization prompt with the target issue number
 ## Required workflow
 
 1. Read the initialization context carefully. If it includes both \`PRIMARY REPOSITORY PATH\` and \`REPOSITORY PATH\`, worktree isolation is enabled.
-2. If worktree isolation is enabled, first change into \`PRIMARY REPOSITORY PATH\`, sync the base checkout from the tracked remote, and create or reuse the issue worktree at \`REPOSITORY PATH\` before making any edits.
-3. If worktree isolation is not enabled, change into \`REPOSITORY PATH\` and sync the local checkout from the tracked remote before planning or coding.
+2. If worktree isolation is enabled, first change into \`PRIMARY REPOSITORY PATH\`, switch to the default branch, sync the base checkout from the tracked remote, and create or reuse the issue worktree at \`REPOSITORY PATH\` before making any edits.
+3. If worktree isolation is not enabled, change into \`REPOSITORY PATH\`, switch to the default branch, and sync the local checkout from the tracked remote before planning or coding.
 4. Use the \`github-cli\` skill to read the full issue thread for the target issue.
 5. Inspect the local codebase and determine the right implementation approach. Use the plan mode or subagent if available.
 6. Post a plan comment to the issue.
