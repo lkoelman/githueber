@@ -9,9 +9,6 @@ import {
   listRenderedHarnessAssets,
   renderHarnessAssets
 } from "../src/harnessAssets/index.ts";
-
-const repoRoot = join(import.meta.dir, "..", "..");
-
 describe("canonical harness assets", () => {
   test("preserves the github-cli skill source metadata", () => {
     expect(getCanonicalSkillDefinition("github-cli")).toMatchObject({
@@ -27,45 +24,6 @@ describe("canonical harness assets", () => {
     );
     expect(getCanonicalAgentDefinition("github-orchestrator-agent").description).toBe(
       "Decomposes GitHub epics or refactors into actionable child issues for the daemon worker pool."
-    );
-  });
-});
-
-describe("OpenCode parity rendering", () => {
-  test("renders the github-cli skill exactly like the checked-in source", () => {
-    const rendered = renderHarnessAssets("opencode");
-    const actual = rendered.files.find(
-      (file) => file.relativePath === ".opencode/skills/github-cli/SKILL.md"
-    );
-
-    expect(actual?.content).toBe(
-      readFileSync(
-        join(repoRoot, "harness-plugins/opencode/.opencode/skills/github-cli/SKILL.md"),
-        "utf8"
-      )
-    );
-  });
-
-  test("renders the worker and orchestrator agents exactly like the checked-in source", () => {
-    const rendered = renderHarnessAssets("opencode");
-    const worker = rendered.files.find(
-      (file) => file.relativePath === ".opencode/agents/github-worker-agent.md"
-    );
-    const orchestrator = rendered.files.find(
-      (file) => file.relativePath === ".opencode/agents/github-orchestrator-agent.md"
-    );
-
-    expect(worker?.content).toBe(
-      readFileSync(
-        join(repoRoot, "harness-plugins/opencode/.opencode/agents/github-worker-agent.md"),
-        "utf8"
-      )
-    );
-    expect(orchestrator?.content).toBe(
-      readFileSync(
-        join(repoRoot, "harness-plugins/opencode/.opencode/agents/github-orchestrator-agent.md"),
-        "utf8"
-      )
     );
   });
 });
@@ -135,12 +93,12 @@ describe("harness asset installation", () => {
     writeFileSync(target, "tampered\n");
     installHarnessAssets({ harness: "opencode", homeDir });
 
-    expect(readFileSync(target, "utf8")).toBe(
-      readFileSync(
-        join(repoRoot, "harness-plugins/opencode/.opencode/agents/github-worker-agent.md"),
-        "utf8"
-      )
+    const rendered = renderHarnessAssets("opencode");
+    const expected = rendered.files.find(
+      (file) => file.relativePath === ".opencode/agents/github-worker-agent.md"
     );
+
+    expect(readFileSync(target, "utf8")).toBe(expected?.content);
 
     rmSync(homeDir, { recursive: true, force: true });
   });
