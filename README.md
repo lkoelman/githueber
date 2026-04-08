@@ -10,7 +10,11 @@
 
 
 <p align="center">
+  <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/lkoelman/githueber">
+  <img alt="GitHub forks" src="https://img.shields.io/github/forks/lkoelman/githueber">
+  <img alt="GitHub Issues or Pull Requests" src="https://img.shields.io/github/issues/lkoelman/githueber">
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-ESM-3178C6?logo=typescript&logoColor=white" />
+  <img alt="GitHub License" src="https://img.shields.io/github/license/lkoelman/githueber">
 </p>
 
 
