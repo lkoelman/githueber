@@ -23,6 +23,26 @@ TypeScript/Bun daemon package that bridges GitHub issue state to coding harnesse
 
 ## Installation
 
+One-line install for the package, CLI, and default OpenCode harness assets:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/lkoelman/agents-config/main/install-githueber.sh | bash
+```
+
+Common options:
+
+```bash
+# install without prompts
+curl -fsSL https://raw.githubusercontent.com/lkoelman/agents-config/main/install-githueber.sh | bash -s -- -y
+
+# install a different harness asset set
+curl -fsSL https://raw.githubusercontent.com/lkoelman/agents-config/main/install-githueber.sh | bash -s -- --harness codex
+```
+
+The installer downloads the repository archive, checks whether `gh` and `bun` are installed, offers to install missing dependencies, then runs `bun install`, `bun run build:all`, `bun link`, and `gbr harness-install` for the selected harness. `-y` accepts dependency installation prompts automatically. `gh` installation currently supports Homebrew, `apt-get`, `dnf`, and `pacman`.
+
+Manual install remains available:
+
 ```bash
 cd agents-config/githueber
 
