@@ -117,7 +117,7 @@ Available commands:
 - `gbr harness-install <opencode|codex|claude|gemini>`: install generated agent and skill definitions into the selected harness's user-home directories
 - `gbr start`: start the daemon service directly from the CLI
   - `--harness <opencode|codex>`: override the configured default harness for repositories that do not set their own `harness`
-  - `--echo`: stream assistant response text to stdout in real time while keeping lifecycle markers for prompts, pauses, and completion
+  - `--echo`: stream user-visible Codex/OpenCode session output to stdout in real time while keeping lifecycle markers for prompts, pauses, and completion
 - `gbr sessions`: list active ACP sessions, including repository key and owner/repo identity
 - `gbr poll`: trigger an immediate GitHub poll cycle across all configured repositories and print the fetched and dispatched issues
 - `gbr stop <session-id>`: stop a tracked ACP session by session id
@@ -186,7 +186,7 @@ Harness resolution precedence is:
 
 When `isolation.worktrees` is set to an absolute directory, prompt generation switches issue execution into a deterministic per-issue worktree path like `/repos/worktrees/your-org-frontend-repo-issue-42`. Set it to `null` or `false` to keep working directly in `local_repo_path`.
 
-The ACP integration also emits a structured session interaction stream inside the daemon. `gbr start --echo` now renders streamed assistant response text from that event stream in real time, while the same interface remains suitable for a future `gbr follow <session-id>` IPC command.
+The ACP integration also emits a structured session interaction stream inside the daemon. `gbr start --echo` now renders streamed user-visible session output from that event stream in real time, while the same interface remains suitable for a future `gbr follow <session-id>` IPC command.
 
 ## Codex Harness Notes
 

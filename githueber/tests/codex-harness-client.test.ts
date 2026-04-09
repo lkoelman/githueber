@@ -281,7 +281,7 @@ describe("createCodexHarnessClient", () => {
     });
   });
 
-  test("ignores reasoning and command output deltas for echo streaming", async () => {
+  test("streams plan, command, and file-change output while still ignoring reasoning", async () => {
     const fake = createFakeCodexProcess();
     const deltas: Array<{ sessionId: string; message: string }> = [];
 
@@ -311,13 +311,12 @@ describe("createCodexHarnessClient", () => {
     await createPromise;
 
     fake.send({
-      method: "item/reasoning/summaryTextDelta",
+      method: "item/plan/delta",
       params: {
         threadId: "thr_noise",
         turnId: "turn_noise",
-        itemId: "item_reasoning",
-        summaryIndex: 0,
-        delta: "Thinking..."
+        itemId: "item_plan",
+        delta: "1. Inspect the failing path\n"
       }
     });
     fake.send({
@@ -329,9 +328,184 @@ describe("createCodexHarnessClient", () => {
         delta: "npm test\n"
       }
     });
+    fake.send({
+      method: "item/fileChange/outputDelta",
+      params: {
+        threadId: "thr_noise",
+        turnId: "turn_noise",
+        itemId: "item_file",
+        delta: "Updated src/index.ts\n"
+      }
+    });
+    fake.send({
+      method: "item/reasoning/summaryTextDelta",
+      params: {
+        threadId: "thr_noise",
+        turnId: "turn_noise",
+        itemId: "item_reasoning",
+        summaryIndex: 0,
+        delta: "Thinking..."
+      }
+    });
 
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(deltas).toEqual([]);
+    expect(deltas).toEqual([
+      { sessionId: "thr_noise", message: "1. Inspect the failing path\n" },
+      { sessionId: "thr_noise", message: "npm test\n" },
+      { sessionId: "thr_noise", message: "Updated src/index.ts\n" }
+    ]);
+  });
+
+  test("falls back to completed agent and plan items when no deltas were streamed", async () => {
+    const fake = createFakeCodexProcess();
+    const deltas: Array<{ sessionId: string; message: string }> = [];
+
+    const client = createCodexHarnessClient(
+      {
+        command: "codex",
+        args: "app-server",
+        model: "gpt-5.4"
+      },
+      () => fake.process
+    );
+
+    client.on?.("sessionMessageDelta", ({ sessionId, message }) => deltas.push({ sessionId, message }));
+
+    const createPromise = client.createSession({
+      agentDefinition: "github-worker-agent",
+      initialPrompt: "Start working on issue 42.",
+      cwd: "/repos/frontend"
+    });
+
+    await waitFor(() => fake.writes.length === 1);
+    fake.send({ id: 1, result: { userAgent: "codex" } });
+    await waitFor(() => fake.writes.length === 3);
+    fake.send({ id: 2, result: { thread: { id: "thr_completed" } } });
+    await waitFor(() => fake.writes.length === 4);
+    fake.send({ id: 3, result: { turn: { id: "turn_completed", items: [], status: "in_progress", error: null } } });
+    await createPromise;
+
+    fake.send({
+      method: "item/completed",
+      params: {
+        threadId: "thr_completed",
+        turnId: "turn_completed",
+        item: {
+          type: "plan",
+          id: "plan_1",
+          text: "1. Reproduce the bug\n2. Patch the transport"
+        }
+      }
+    });
+    fake.send({
+      method: "item/completed",
+      params: {
+        threadId: "thr_completed",
+        turnId: "turn_completed",
+        item: {
+          type: "agentMessage",
+          id: "msg_1",
+          text: "Bug fixed.",
+          phase: "final_answer",
+          memoryCitation: null
+        }
+      }
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(deltas).toEqual([
+      {
+        sessionId: "thr_completed",
+        message: "1. Reproduce the bug\n2. Patch the transport"
+      },
+      {
+        sessionId: "thr_completed",
+        message: "Bug fixed."
+      }
+    ]);
+  });
+
+  test("does not duplicate completed agent or plan items after deltas already streamed", async () => {
+    const fake = createFakeCodexProcess();
+    const deltas: Array<{ sessionId: string; message: string }> = [];
+
+    const client = createCodexHarnessClient(
+      {
+        command: "codex",
+        args: "app-server",
+        model: "gpt-5.4"
+      },
+      () => fake.process
+    );
+
+    client.on?.("sessionMessageDelta", ({ sessionId, message }) => deltas.push({ sessionId, message }));
+
+    const createPromise = client.createSession({
+      agentDefinition: "github-worker-agent",
+      initialPrompt: "Start working on issue 42.",
+      cwd: "/repos/frontend"
+    });
+
+    await waitFor(() => fake.writes.length === 1);
+    fake.send({ id: 1, result: { userAgent: "codex" } });
+    await waitFor(() => fake.writes.length === 3);
+    fake.send({ id: 2, result: { thread: { id: "thr_dup" } } });
+    await waitFor(() => fake.writes.length === 4);
+    fake.send({ id: 3, result: { turn: { id: "turn_dup", items: [], status: "in_progress", error: null } } });
+    await createPromise;
+
+    fake.send({
+      method: "item/agentMessage/delta",
+      params: {
+        threadId: "thr_dup",
+        turnId: "turn_dup",
+        itemId: "msg_dup",
+        delta: "Still working"
+      }
+    });
+    fake.send({
+      method: "item/plan/delta",
+      params: {
+        threadId: "thr_dup",
+        turnId: "turn_dup",
+        itemId: "plan_dup",
+        delta: "1. Verify the patch"
+      }
+    });
+    fake.send({
+      method: "item/completed",
+      params: {
+        threadId: "thr_dup",
+        turnId: "turn_dup",
+        item: {
+          type: "agentMessage",
+          id: "msg_dup",
+          text: "Still working",
+          phase: "final_answer",
+          memoryCitation: null
+        }
+      }
+    });
+    fake.send({
+      method: "item/completed",
+      params: {
+        threadId: "thr_dup",
+        turnId: "turn_dup",
+        item: {
+          type: "plan",
+          id: "plan_dup",
+          text: "1. Verify the patch"
+        }
+      }
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(deltas).toEqual([
+      { sessionId: "thr_dup", message: "Still working" },
+      { sessionId: "thr_dup", message: "1. Verify the patch" }
+    ]);
   });
 });

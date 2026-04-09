@@ -14,6 +14,7 @@ import type { ThreadStartParams } from "./generated/v2/ThreadStartParams";
 import type { TurnInterruptParams } from "./generated/v2/TurnInterruptParams";
 import type { TurnStartParams } from "./generated/v2/TurnStartParams";
 import type { TurnSteerParams } from "./generated/v2/TurnSteerParams";
+import type { ThreadItem } from "./generated/v2/ThreadItem";
 
 interface ChildProcessLike {
   stdin: Writable & { write(chunk: string): boolean };
@@ -39,6 +40,7 @@ interface SessionRuntime {
   activeTurnId?: string;
   pendingRequest?: PendingRequest;
   cwd?: string;
+  streamedItemIds: Set<string>;
 }
 
 function splitArgs(args: string): string[] {
@@ -142,6 +144,7 @@ class CodexStdioHarnessClient implements HarnessClientLike {
       });
     }
 
+    runtime.streamedItemIds.clear();
     runtime.process.kill();
     this.sessions.delete(sessionId);
   }
@@ -155,7 +158,8 @@ class CodexStdioHarnessClient implements HarnessClientLike {
     const runtime: SessionRuntime = {
       process,
       nextRequestId: 1,
-      pendingResponses: new Map()
+      pendingResponses: new Map(),
+      streamedItemIds: new Set()
     };
 
     this.bindProcessOutput(runtime);
@@ -269,20 +273,55 @@ class CodexStdioHarnessClient implements HarnessClientLike {
     switch (notification.method) {
       case "turn/started":
         runtime.activeTurnId = notification.params.turn.id;
+        runtime.streamedItemIds.clear();
         break;
       case "item/agentMessage/delta":
+      case "item/plan/delta":
+      case "item/commandExecution/outputDelta":
+      case "item/fileChange/outputDelta":
+        runtime.streamedItemIds.add(notification.params.itemId);
         this.emit("sessionMessageDelta", {
           sessionId: notification.params.threadId,
           message: notification.params.delta
         });
         break;
+      case "item/completed":
+        this.emitCompletedItemIfNeeded(runtime, notification.params.threadId, notification.params.item);
+        break;
       case "turn/completed":
         runtime.activeTurnId = undefined;
         runtime.pendingRequest = undefined;
+        runtime.streamedItemIds.clear();
         this.emit("sessionCompleted", { sessionId: notification.params.threadId });
         break;
       default:
         break;
+    }
+  }
+
+  /** Emits completed item text when Codex did not already stream deltas for that item. */
+  private emitCompletedItemIfNeeded(runtime: SessionRuntime, sessionId: string, item: ThreadItem): void {
+    if (runtime.streamedItemIds.has(item.id)) {
+      return;
+    }
+
+    const message = this.getCompletedItemMessage(item);
+    if (!message) {
+      return;
+    }
+
+    runtime.streamedItemIds.add(item.id);
+    this.emit("sessionMessageDelta", { sessionId, message });
+  }
+
+  /** Extracts user-visible text from completed items that should be echoed to the operator. */
+  private getCompletedItemMessage(item: ThreadItem): string | null {
+    switch (item.type) {
+      case "agentMessage":
+      case "plan":
+        return item.text;
+      default:
+        return null;
     }
   }
 

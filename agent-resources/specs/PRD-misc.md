@@ -1,12 +1,7 @@
-Bugs
-- fix worker agent permissions (too many tools are disallowed)
-- opencode http client text streaming: it seems to only stream the reasoning text
-- when worktrees are enabled, it uses the primary repository path first to inspect the code and make a plan
-    - we should make a worktree, then pull main, then inspect and plan
-        - make the worktree on daemon side, not agent side
-        - modify instructions in `githueber/src/harnessAssets/index.ts`
+(first see https://github.com/lkoelman/githueber/issues)
 
-Improvements
+
+Enhancements:
 - improve onboarding and README
     - installer script: install config into `~/.config/githueber/config.yaml`
     - update README: edit this config after installation
@@ -16,9 +11,6 @@ Improvements
 - error message when running `gbr` command and daemon is not active
     - gbr sessions -> `connect ENOENT /tmp/githueber.sock`
 
-
-Push notifications
-- see github issue
 
 Named and resumable sessions
 - the OpenCode sessions created by the daemon are not listed when running `opencode session list`
