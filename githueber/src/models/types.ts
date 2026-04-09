@@ -74,19 +74,12 @@ export interface GitHubIssue extends RepositoryIdentity {
   localRepoPath: string;
   /** GitHub issue node/database id from the REST payload. */
   id: number;
-  /** Human-facing GitHub issue number, unique only within one repository. */
   number: number;
-  /** Issue title. */
   title: string;
-  /** Issue body markdown. */
   body: string;
-  /** Current set of label names on the issue. */
   labels: string[];
-  /** Current GitHub open/closed state. */
   state: GitHubIssueState;
-  /** ISO timestamp for the last issue update observed by the poller. */
-  updatedAt: string;
-  /** Known issue comments when the issue snapshot includes them. */
+  updatedAt: string; // ISO timestamp
   comments: GitHubComment[];
 }
 
@@ -106,7 +99,6 @@ export interface RouteDecision {
 export interface AgentSessionRecord extends RepositoryIdentity {
   /** Harness-native session/thread id used for follow-up messages and stop requests. */
   sessionId: string;
-  /** GitHub issue number within the repository identified above. */
   issueNumber: number;
   /** Daemon-side lifecycle state derived from harness events. */
   status: SessionStatus;
@@ -192,15 +184,13 @@ export interface ExecutionConfig {
   timeoutSeconds: number;
 }
 
-/** Poll cadence settings for GitHub polling. */
+/** Settings for GitHub polling. */
 export interface PollingConfig {
-  /** Poll interval in milliseconds. */
   intervalMs: number;
 }
 
 /** Connection settings for the OpenCode harness backend. */
 export interface OpenCodeConfig {
-  /** Base HTTP URL for the OpenCode server. */
   endpoint: string;
 }
 
@@ -212,21 +202,16 @@ export interface CodexConfig {
   args: string;
   /** Optional model override sent in `thread/start`; `null` lets Codex choose its default. */
   model: string | null;
-  /** Non-granular Codex approval policy applied when starting a thread. */
   approvalPolicy: Exclude<AskForApproval, { granular: unknown }>;
-  /** Codex sandbox mode applied when starting a thread. */
   sandbox: SandboxMode;
 }
 
 /** Local IPC server settings for the daemon control socket. */
 export interface IPCConfig {
-  /** Unix domain socket path used by the CLI and daemon. */
   socketPath: string;
 }
 
-/** Logging settings carried through runtime config. */
 export interface LoggingConfig {
-  /** Configured log level string. */
   level: string;
 }
 
@@ -264,8 +249,8 @@ export interface HarnessSessionStartRequest {
    * Harness-facing agent selector.
    *
    * In the current daemon flow this is the agent name chosen from `RepositoryConfig.agentMapping`
-   * or the router default, not an embedded definition object. Each harness interprets the string in
-   * its own way: OpenCode sends it as the `agent` field on the initial prompt, while Codex currently
+   * or the router default. Each harness interprets the string in its own way:
+   * OpenCode sends it as the `agent` field on the initial prompt, while Codex currently
    * treats it as metadata only and does not pass it through the app-server protocol.
    */
   agentDefinition: string;
