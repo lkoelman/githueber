@@ -135,8 +135,8 @@ The prompt builder converts a `GitHubIssue` into structured context, including r
 
 - Responsibility: create and manage coding sessions through harness-specific clients behind a shared daemon-facing session manager contract.
 - Implementation:
-  - [HarnessSessionManager.ts](../src/harness/HarnessSessionManager.ts)
-  - [MultiHarnessSessionManager.ts](../src/harness/MultiHarnessSessionManager.ts)
+  - [HarnessSessionManager.ts](../src/sessionManager/HarnessSessionManager.ts)
+  - [MultiHarnessSessionManager.ts](../src/sessionManager/MultiHarnessSessionManager.ts)
   - [OpenCodeHarnessClient.ts](../src/opencode/OpenCodeHarnessClient.ts)
   - [CodexHarnessClient.ts](../src/codex/CodexHarnessClient.ts)
 - Main interfaces:

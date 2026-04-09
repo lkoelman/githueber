@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { HarnessSessionManager } from "../src/harness/HarnessSessionManager.ts";
+import { HarnessSessionManager } from "../src/sessionManager/HarnessSessionManager.ts";
 import { createACPClient } from "../src/opencode/OpenCodeHarnessClient.ts";
 import type { GitHubIssue } from "../src/models/types.ts";
 

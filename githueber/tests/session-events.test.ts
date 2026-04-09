@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createSessionEventEchoListener } from "../src/harness/sessionEvents.ts";
+import { createSessionEventEchoListener } from "../src/sessionManager/sessionEvents.ts";
 import type { SessionInteractionEvent } from "../src/models/types.ts";
 
 const baseEvent: SessionInteractionEvent = {
