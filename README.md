@@ -170,6 +170,8 @@ codex:
   command: codex
   args: app-server
   model: gpt-5.4
+  approval_policy: on-request
+  sandbox: workspace-write
 
 isolation:
   worktrees: /repos/worktrees
@@ -191,6 +193,8 @@ The ACP integration also emits a structured session interaction stream inside th
 ## Codex Harness Notes
 
 The Codex harness launches `codex app-server` over stdio for each daemon-managed session. This implementation was generated and tested against `codex-cli 0.118.0`.
+
+Codex thread startup behavior is configurable in `codex.approval_policy` (`untrusted`, `on-failure`, `on-request`, `never`) and `codex.sandbox` (`read-only`, `workspace-write`, `danger-full-access`). If omitted, Githueber keeps the current defaults of `on-request` and `workspace-write`.
 
 The vendored protocol types under `src/codex/generated/` can be regenerated with:
 

@@ -58,6 +58,8 @@ codex:
   command: "codex"
   args: "app-server"
   model: "gpt-5.4"
+  approval_policy: "on-request"
+  sandbox: "workspace-write"
 
 ipc:
   socket_path: "/tmp/githueber.sock"

@@ -111,7 +111,41 @@ codex:
     expect(config.codex).toEqual({
       command: "codex",
       args: "app-server",
-      model: "gpt-5.4"
+      model: "gpt-5.4",
+      approvalPolicy: "on-request",
+      sandbox: "workspace-write"
+    });
+
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("loads configurable Codex approval policy and sandbox settings", () => {
+    const dir = mkdtempSync(join(tmpdir(), "githueber-codex-session-config-"));
+    const configPath = join(dir, "config.yaml");
+    writeFileSync(
+      configPath,
+      sampleConfig
+        .replace('  harness: "opencode"\n', '  harness: "codex"\n')
+        .concat(
+          `
+codex:
+  command: "codex"
+  args: "app-server"
+  model: "gpt-5.4"
+  approval_policy: "never"
+  sandbox: "danger-full-access"
+`
+        )
+    );
+
+    const config = new ConfigManager(configPath).getConfig();
+
+    expect(config.codex).toEqual({
+      command: "codex",
+      args: "app-server",
+      model: "gpt-5.4",
+      approvalPolicy: "never",
+      sandbox: "danger-full-access"
     });
 
     rmSync(dir, { recursive: true, force: true });

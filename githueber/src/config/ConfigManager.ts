@@ -1,5 +1,7 @@
 import { readFileSync } from "node:fs";
 import { isAbsolute } from "node:path";
+import type { AskForApproval } from "../codex/generated/v2/AskForApproval.ts";
+import type { SandboxMode } from "../codex/generated/v2/SandboxMode.ts";
 import type {
   CodexConfig,
   DaemonConfig,
@@ -47,6 +49,24 @@ function asHarness(value: unknown, key: string): HarnessName {
   }
 
   throw new Error(`Unsupported harness for ${key}: ${String(value)}`);
+}
+
+/** Validates a Codex thread approval policy string supported by config. */
+function asCodexApprovalPolicy(value: unknown, key: string): Exclude<AskForApproval, { granular: unknown }> {
+  if (value === "untrusted" || value === "on-failure" || value === "on-request" || value === "never") {
+    return value;
+  }
+
+  throw new Error(`Unsupported Codex approval policy for ${key}: ${String(value)}`);
+}
+
+/** Validates a Codex thread sandbox mode. */
+function asCodexSandbox(value: unknown, key: string): SandboxMode {
+  if (value === "read-only" || value === "workspace-write" || value === "danger-full-access") {
+    return value;
+  }
+
+  throw new Error(`Unsupported Codex sandbox for ${key}: ${String(value)}`);
 }
 
 /** Validates that a config node is a mapping object. */
@@ -110,7 +130,15 @@ function normalizeCodexConfig(raw: ParsedConfig, required: boolean): CodexConfig
   return {
     command: asString(raw.command, "codex.command"),
     args: raw.args === undefined || raw.args === null ? "app-server" : asString(raw.args, "codex.args"),
-    model: raw.model === null || raw.model === undefined ? null : asString(raw.model, "codex.model")
+    model: raw.model === null || raw.model === undefined ? null : asString(raw.model, "codex.model"),
+    approvalPolicy:
+      raw.approval_policy === undefined || raw.approval_policy === null
+        ? "on-request"
+        : asCodexApprovalPolicy(raw.approval_policy, "codex.approval_policy"),
+    sandbox:
+      raw.sandbox === undefined || raw.sandbox === null
+        ? "workspace-write"
+        : asCodexSandbox(raw.sandbox, "codex.sandbox")
   };
 }
 

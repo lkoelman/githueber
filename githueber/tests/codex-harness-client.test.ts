@@ -184,6 +184,50 @@ describe("createCodexHarnessClient", () => {
     ]);
   });
 
+  test("uses configured approval policy and sandbox when starting a thread", async () => {
+    const fake = createFakeCodexProcess();
+
+    const client = createCodexHarnessClient(
+      {
+        command: "codex",
+        args: "app-server",
+        model: "gpt-5.4",
+        approvalPolicy: "never",
+        sandbox: "danger-full-access"
+      },
+      () => fake.process
+    );
+
+    const createPromise = client.createSession({
+      agentDefinition: "github-worker-agent",
+      initialPrompt: "Start working on issue 42.",
+      cwd: "/repos/frontend"
+    });
+
+    await waitFor(() => fake.writes.length === 1);
+    fake.send({ id: 1, result: { userAgent: "codex" } });
+    await waitFor(() => fake.writes.length >= 3);
+
+    expect(fake.writes[2]).toEqual({
+      method: "thread/start",
+      id: 2,
+      params: {
+        model: "gpt-5.4",
+        cwd: "/repos/frontend",
+        approvalPolicy: "never",
+        sandbox: "danger-full-access",
+        experimentalRawEvents: false,
+        persistExtendedHistory: false
+      }
+    });
+
+    fake.send({ id: 2, result: { thread: { id: "thr_custom" } } });
+    await waitFor(() => fake.writes.length === 4);
+    fake.send({ id: 3, result: { turn: { id: "turn_custom", items: [], status: "in_progress", error: null } } });
+
+    await createPromise;
+  });
+
   test("answers request_user_input prompts with the provided message", async () => {
     const fake = createFakeCodexProcess();
     const paused: string[] = [];

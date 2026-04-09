@@ -82,8 +82,8 @@ class CodexStdioHarnessClient implements HarnessClientLike {
       params: {
         model: this.config.model,
         cwd: request.cwd ?? null,
-        approvalPolicy: "on-request",
-        sandbox: "workspace-write",
+        approvalPolicy: this.config.approvalPolicy ?? "on-request",
+        sandbox: this.config.sandbox ?? "workspace-write",
         experimentalRawEvents: false,
         persistExtendedHistory: false
       } satisfies ThreadStartParams

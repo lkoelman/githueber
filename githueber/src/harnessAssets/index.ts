@@ -169,6 +169,7 @@ const githubWorkerAgent: CanonicalAgentDefinition = {
   },
   opencodePermission: {
     edit: "allow",
+    // TODO: might need more permissions for generic worker
     bash: {
       "*": "deny",
       pwd: "allow",
@@ -349,7 +350,10 @@ function renderOpenCodeAgent(agent: CanonicalAgentDefinition): string {
   return lines.join("\n");
 }
 
-/** Renders a canonical agent into the Codex TOML subagent format used in `.codex/agents`. */
+/** Renders a canonical agent into the Codex TOML subagent format used in `.codex/agents`.
+ *
+ * See agent definition docs at https://developers.openai.com/codex/subagents
+*/
 function renderCodexAgent(agent: CanonicalAgentDefinition): string {
   return [
     `name = "${agent.name}"`,

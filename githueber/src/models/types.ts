@@ -1,3 +1,6 @@
+import type { AskForApproval } from "../codex/generated/v2/AskForApproval.ts";
+import type { SandboxMode } from "../codex/generated/v2/SandboxMode.ts";
+
 export type GitHubIssueState = "open" | "closed";
 export type HarnessName = "opencode" | "codex";
 
@@ -134,6 +137,8 @@ export interface CodexConfig {
   command: string;
   args: string;
   model: string | null;
+  approvalPolicy: Exclude<AskForApproval, { granular: unknown }>;
+  sandbox: SandboxMode;
 }
 
 export interface IPCConfig {
