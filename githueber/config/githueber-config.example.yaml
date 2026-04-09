@@ -58,8 +58,10 @@ codex:
   command: "codex"
   args: "app-server"
   model: "gpt-5.4"
-  approval_policy: "on-request"
-  sandbox: "workspace-write"
+  # see approval policies in githueber/src/codex/generated/v2/AskForApproval.ts
+  approval_policy: "never"
+  # see sandbox modes in githueber/src/codex/generated/v2/SandboxMode.ts
+  sandbox: "danger-full-access"
 
 ipc:
   socket_path: "/tmp/githueber.sock"
