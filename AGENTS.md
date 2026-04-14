@@ -92,6 +92,12 @@ When modifying code, check if these docs need updates:
 - Build/test changes: update this AGENTS.md or module-specific docs
 - Deprecations: mark as deprecated in docs, add migration guide if needed
 
+**Writing docstrings**
+Only write docstrings for non-trivial components.
+Be concise, specific, and value dense. Write so that a new developer can understand the code and easily tie it back to the system architecture, i.e. to its role in the larger system context.
+Docstrings should expres intent, role in system context, and side effects.
+Class docstrings should document fields and their intent.
+
 **Before committing**, ask: "Did I update the docs?"
 
 ## TypeScript Development
