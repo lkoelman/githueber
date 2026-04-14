@@ -40,12 +40,9 @@ class OpenCodeSdkClient implements HarnessClientLike {
 
   constructor(private readonly client: OpencodeClient) {}
 
-  /** Verifies server health and subscribes to the OpenCode event bus exactly once. */
+  /** Verifies server connectivity through the session API and subscribes to the event bus exactly once. */
   async connect(): Promise<void> {
-    const health = await this.client.global.health();
-    if (!health.data.healthy) {
-      throw new Error("OpenCode server health check failed");
-    }
+    await this.client.session.status();
 
     if (!this.eventStreamStarted) {
       this.eventStreamStarted = true;

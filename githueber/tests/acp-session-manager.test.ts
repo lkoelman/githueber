@@ -45,12 +45,6 @@ describe("createACPClient", () => {
     const client = await createACPClient("http://127.0.0.1:9000", {
       createClient: () =>
         ({
-          global: {
-            health: async () => {
-              calls.push({ method: "global.health" });
-              return { data: { healthy: true, version: "1.3.13" } };
-            }
-          },
           event: {
             subscribe: async () => {
               calls.push({ method: "event.subscribe" });
@@ -71,7 +65,10 @@ describe("createACPClient", () => {
               return { data: true };
             },
             list: async () => ({ data: [] }),
-            status: async () => ({ data: {} })
+            status: async () => {
+              calls.push({ method: "session.status" });
+              return { data: {} };
+            }
           }
         }) as any
     });
@@ -101,7 +98,7 @@ describe("createACPClient", () => {
 
     expect(calls).toEqual([
       {
-        method: "global.health"
+        method: "session.status"
       },
       {
         method: "event.subscribe"
