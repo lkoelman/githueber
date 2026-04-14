@@ -42,36 +42,51 @@ describe("createACPClient", () => {
       }
     }
 
-    const client = await createACPClient("http://127.0.0.1:9000", {
-      createClient: () =>
-        ({
-          event: {
-            subscribe: async () => {
-              calls.push({ method: "event.subscribe" });
-              return { stream: eventStream() };
+    const client = await createACPClient(
+      {
+        permission: {
+          external_directory: "allow"
+        }
+      },
+      {
+        createRuntime: async (options) => {
+          calls.push({ method: "createOpencode", payload: options });
+          return {
+            client: {
+              event: {
+                subscribe: async () => {
+                  calls.push({ method: "event.subscribe" });
+                  return { stream: eventStream() };
+                }
+              },
+              session: {
+                create: async (payload: unknown) => {
+                  calls.push({ method: "session.create", payload });
+                  return { data: { id: "ses_123" } };
+                },
+                promptAsync: async (payload: unknown) => {
+                  calls.push({ method: "session.promptAsync", payload });
+                  return { data: { info: { id: "msg_x" }, parts: [] } };
+                },
+                abort: async (payload: unknown) => {
+                  calls.push({ method: "session.abort", payload });
+                  return { data: true };
+                },
+                list: async () => ({ data: [] }),
+                status: async () => {
+                  calls.push({ method: "session.status" });
+                  return { data: {} };
+                }
+              }
+            } as any,
+            server: {
+              url: "http://127.0.0.1:4100",
+              close() {}
             }
-          },
-          session: {
-            create: async (payload: unknown) => {
-              calls.push({ method: "session.create", payload });
-              return { data: { id: "ses_123" } };
-            },
-            promptAsync: async (payload: unknown) => {
-              calls.push({ method: "session.promptAsync", payload });
-              return { data: { info: { id: "msg_x" }, parts: [] } };
-            },
-            abort: async (payload: unknown) => {
-              calls.push({ method: "session.abort", payload });
-              return { data: true };
-            },
-            list: async () => ({ data: [] }),
-            status: async () => {
-              calls.push({ method: "session.status" });
-              return { data: {} };
-            }
-          }
-        }) as any
-    });
+          };
+        }
+      }
+    );
     const paused: string[] = [];
     const completed: string[] = [];
     const deltas: Array<{ sessionId: string; message: string }> = [];
@@ -97,6 +112,19 @@ describe("createACPClient", () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
 
     expect(calls).toEqual([
+      {
+        method: "createOpencode",
+        payload: {
+          hostname: undefined,
+          port: undefined,
+          timeout: undefined,
+          config: {
+            permission: {
+              external_directory: "allow"
+            }
+          }
+        }
+      },
       {
         method: "session.status"
       },

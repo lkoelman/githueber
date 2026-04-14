@@ -110,6 +110,11 @@ export class HarnessSessionManager implements SessionManagerLike {
     await this.harnessClient.connect();
   }
 
+  /** Releases harness-scoped resources once the daemon is done managing this backend. */
+  async shutdown(): Promise<void> {
+    await this.harnessClient.close?.();
+  }
+
   /** Returns the active session currently associated with a repository issue, if any. */
   getSessionForIssue(repositoryKey: string, issueNumber: number): AgentSessionRecord | undefined {
     return this.activeSessions.get(issueKey(repositoryKey, issueNumber));

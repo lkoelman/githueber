@@ -142,7 +142,7 @@ The prompt builder converts a `GitHubIssue` into structured context, including r
   - [OpenCodeSessionRegistry.ts](../src/opencode/OpenCodeSessionRegistry.ts)
   - [CodexHarnessClient.ts](../src/codex/CodexHarnessClient.ts)
 - Main interfaces:
-  - `createOpenCodeHarnessClient(endpoint, deps?)`
+  - `createOpenCodeHarnessClient(config, deps?)`
   - `createCodexHarnessClient(config, spawnImpl?)`
   - `initialize()`
   - `getSessionForIssue(repositoryKey, issueNumber)`
@@ -155,7 +155,7 @@ The prompt builder converts a `GitHubIssue` into structured context, including r
 
 `HarnessSessionManager` stores active sessions keyed by repository plus issue number so identical issue numbers in different repositories remain isolated. `MultiHarnessSessionManager` composes one harness-specific manager per required backend and routes repository-scoped issues to the correct one at runtime.
 
-The OpenCode harness client uses the official `@opencode-ai/sdk` against an `opencode serve` backend, subscribes to the server event stream, and translates session turn updates into daemon pause/completion lifecycle events. `OpenCodeSessionManager` persists the repository-issue-to-session mapping in `runtime/opencode-sessions.json` so paused or still-running OpenCode sessions can be restored after daemon restart. The Codex harness client launches `codex app-server` over stdio, performs the initialize handshake, starts a thread and turn, and maps app-server approval or user-input states into the daemon's normalized pause/completion lifecycle.
+The OpenCode harness client uses the official `@opencode-ai/sdk` and spawns its own local OpenCode server with the configured server-side permission overrides before subscribing to the server event stream. `OpenCodeSessionManager` persists the repository-issue-to-session mapping in `runtime/opencode-sessions.json` so paused or still-running OpenCode sessions can be restored after daemon restart. The Codex harness client launches `codex app-server` over stdio, performs the initialize handshake, starts a thread and turn, and maps app-server approval or user-input states into the daemon's normalized pause/completion lifecycle.
 
 ### 7. Daemon Coordinator
 

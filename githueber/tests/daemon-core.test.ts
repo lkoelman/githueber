@@ -55,9 +55,7 @@ const config: DaemonConfig = {
   polling: {
     intervalMs: 1000
   },
-  opencode: {
-    endpoint: "http://127.0.0.1:9000"
-  },
+  opencode: {},
   ipc: {
     socketPath: "/tmp/githueber.sock"
   },
@@ -112,6 +110,7 @@ class ACPStub implements ACPManagerLike {
   public started: Array<{ repositoryKey: string; issueNumber: number; agentName: string; prompt: string }> = [];
   public sent: Array<{ sessionId: string; message: string }> = [];
   public stopped: string[] = [];
+  public shutdownCount = 0;
   public sessions = new Map<string, AgentSessionRecord>();
 
   async initialize(): Promise<void> {}
@@ -143,6 +142,9 @@ class ACPStub implements ACPManagerLike {
         this.sessions.delete(key);
       }
     }
+  }
+  async shutdown(): Promise<void> {
+    this.shutdownCount += 1;
   }
   onSessionPaused(): void {}
   onSessionCompleted(): void {}
@@ -307,5 +309,6 @@ describe("DaemonCore", () => {
     expect(backendStopped).toBe(true);
     expect(acp.stopped).toEqual(["frontend-session-42", "backend-session-99"]);
     expect(acp.listSessions()).toEqual([]);
+    expect(acp.shutdownCount).toBe(1);
   });
 });

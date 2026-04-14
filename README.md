@@ -84,13 +84,7 @@ bun link
 
 ## Usage
 
-1. Start the OpenCode server in its own shell:
-
-```bash
-opencode serve --port 9000
-```
-
-2. Start the Githueber daemon service:
+1. Start the Githueber daemon service:
 
 ```bash
 # set environment variables:
@@ -105,7 +99,9 @@ gbr start [--echo]
 
 Press `Ctrl+C` to stop the daemon gracefully. It will print a shutdown message, stop polling, and close tracked harness sessions before exiting.
 
-3. Make changes on Github and wait for `polling.intervalMs` or run `gbr poll`
+When OpenCode is selected as the active harness, Githueber now starts its own OpenCode SDK server automatically. You no longer need to run `opencode serve` yourself just to make daemon-managed sessions work.
+
+2. Make changes on Github and wait for `polling.intervalMs` or run `gbr poll`
 
 ## CLI
 
@@ -164,7 +160,10 @@ execution:
   harness: opencode
 
 opencode:
-  endpoint: http://127.0.0.1:9000
+  port: 4100
+  permission:
+    external_directory: allow
+    bash: ask
 
 codex:
   command: codex
@@ -190,7 +189,7 @@ When `isolation.worktrees` is set to an absolute directory, prompt generation sw
 
 The harness integrations emit a structured session interaction stream inside the daemon. `gbr start --echo` renders streamed user-visible session output from that event stream in real time, while the same interface remains suitable for a future `gbr follow <session-id>` IPC command.
 
-For OpenCode, Githueber now uses the official SDK against the `opencode serve` HTTP server. Daemon-created OpenCode sessions are native OpenCode sessions, so they appear in `opencode session list`. Githueber also persists the repository/issue-to-session mapping under the config directory so paused or still-running OpenCode sessions can be restored after daemon restart. Once you have the session id, you can continue it directly with OpenCode using `opencode --session <id>` or attach to a running server with `opencode attach http://localhost:9000 --session <id>`.
+For OpenCode, Githueber uses the official SDK and starts its own local OpenCode server for daemon-managed work. The `opencode` config section is now where you set server-side permission overrides such as `permission.external_directory: allow`; these are passed into the SDK server config when Githueber launches the server. Daemon-created OpenCode sessions are native OpenCode sessions, so they appear in `opencode session list`. Githueber also persists the repository/issue-to-session mapping under the config directory so paused or still-running OpenCode sessions can be restored after daemon restart.
 
 ## Codex Harness Notes
 

@@ -1,5 +1,10 @@
-import { createOpencodeClient, type OpencodeClient } from "@opencode-ai/sdk";
-import type { HarnessClientLike, HarnessMessagePayload, HarnessSessionStartRequest } from "../models/types.ts";
+import { createOpencode, type OpencodeClient, type ServerOptions } from "@opencode-ai/sdk";
+import type {
+  HarnessClientLike,
+  HarnessMessagePayload,
+  HarnessSessionStartRequest,
+  OpenCodeConfig
+} from "../models/types.ts";
 
 interface OpenCodeSessionStatusEvent {
   type?: string;
@@ -24,7 +29,13 @@ interface OpenCodeMessagePartUpdatedEvent {
 }
 
 export interface CreateOpenCodeHarnessClientDeps {
-  createClient?: (config: { baseUrl: string }) => OpencodeClient;
+  createRuntime?: (options?: ServerOptions) => Promise<{
+    client: OpencodeClient;
+    server: {
+      url: string;
+      close(): void;
+    };
+  }>;
 }
 
 function sessionMessageKey(sessionId: string, messageId: string): string {
@@ -38,7 +49,10 @@ class OpenCodeSdkClient implements HarnessClientLike {
   private readonly sessionTurnMessages = new Map<string, Set<string>>();
   private eventStreamStarted = false;
 
-  constructor(private readonly client: OpencodeClient) {}
+  constructor(
+    private readonly client: OpencodeClient,
+    private readonly server: { url: string; close(): void }
+  ) {}
 
   /** Verifies server connectivity through the session API and subscribes to the event bus exactly once. */
   async connect(): Promise<void> {
@@ -192,15 +206,31 @@ class OpenCodeSdkClient implements HarnessClientLike {
   async getSessionStatuses(): Promise<Record<string, { type: string }>> {
     return await this.client.session.status().then((response) => response.data as Record<string, { type: string }>);
   }
+
+  /** Returns the URL of the daemon-owned OpenCode server backing this client. */
+  getServerUrl(): string {
+    return this.server.url;
+  }
+
+  /** Stops the daemon-owned OpenCode server. */
+  async close(): Promise<void> {
+    this.server.close();
+  }
 }
 
 /** Creates the OpenCode harness client used by the daemon. */
 export async function createOpenCodeHarnessClient(
-  endpoint: string,
+  config: OpenCodeConfig,
   deps: CreateOpenCodeHarnessClientDeps = {}
 ): Promise<HarnessClientLike> {
-  const createClient = deps.createClient ?? ((config: { baseUrl: string }) => createOpencodeClient(config));
-  return new OpenCodeSdkClient(createClient({ baseUrl: endpoint }));
+  const createRuntime = deps.createRuntime ?? ((options?: ServerOptions) => createOpencode(options));
+  const runtime = await createRuntime({
+    hostname: config.hostname,
+    port: config.port,
+    timeout: config.timeout,
+    config: config.permission ? { permission: config.permission } : undefined
+  });
+  return new OpenCodeSdkClient(runtime.client, runtime.server);
 }
 
 export const createACPClient = createOpenCodeHarnessClient;

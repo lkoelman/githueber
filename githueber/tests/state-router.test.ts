@@ -54,9 +54,7 @@ const config: DaemonConfig = {
   polling: {
     intervalMs: 60000
   },
-  opencode: {
-    endpoint: "http://127.0.0.1:9000"
-  },
+  opencode: {},
   ipc: {
     socketPath: "/tmp/githueber.sock"
   },

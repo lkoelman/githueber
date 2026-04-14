@@ -144,7 +144,12 @@ describe("createSessionManagerForConfig", () => {
       timeoutSeconds: 3600
     },
     polling: { intervalMs: 1000 },
-    opencode: { endpoint: "http://127.0.0.1:9000" },
+    opencode: {
+      permission: {
+        externalDirectory: "allow"
+      },
+      server: {}
+    },
     codex: { command: "codex", args: "app-server", model: "gpt-5.4" },
     ipc: { socketPath: "/tmp/githueber.sock" },
     logging: { level: "info" },
@@ -174,7 +179,8 @@ describe("createSessionManagerForConfig", () => {
       config,
       {},
       {
-        createOpenCodeClient: async () => {
+        createOpenCodeClient: async (opencodeConfig) => {
+          expect(opencodeConfig).toEqual(config.opencode);
           created.push("opencode");
           return createHarnessStub("opencode");
         },
@@ -239,7 +245,7 @@ describe("createSessionManagerForConfig", () => {
           issueNumber: 42,
           status: "PAUSED_AWAITING_APPROVAL",
           agentName: "github-worker-agent",
-          endpoint: "http://127.0.0.1:9000",
+          endpoint: "http://127.0.0.1:4100",
           updatedAt: "2026-04-14T00:00:00.000Z"
         }
       ])
@@ -262,6 +268,9 @@ describe("createSessionManagerForConfig", () => {
             },
             async getSessionStatuses(): Promise<Record<string, { type: string }>> {
               return { ses_restored: { type: "idle" } };
+            },
+            getServerUrl(): string {
+              return "http://127.0.0.1:4100";
             },
             on() {}
           } as any),

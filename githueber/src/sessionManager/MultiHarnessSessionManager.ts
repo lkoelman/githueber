@@ -48,6 +48,11 @@ export class MultiHarnessSessionManager implements SessionManagerLike {
     await Promise.all(this.managers.map((manager) => manager.initialize()));
   }
 
+  /** Shuts down every active harness backend used by the daemon. */
+  async shutdown(): Promise<void> {
+    await Promise.all(this.managers.map((manager) => manager.shutdown?.()));
+  }
+
   /** Returns the session currently associated with a repository issue, regardless of harness backend. */
   getSessionForIssue(repositoryKey: string, issueNumber: number): AgentSessionRecord | undefined {
     return this.managers

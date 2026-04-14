@@ -191,7 +191,16 @@ export interface PollingConfig {
 
 /** Connection settings for the OpenCode harness backend. */
 export interface OpenCodeConfig {
-  endpoint: string;
+  hostname?: string;
+  port?: number;
+  timeout?: number;
+  permission?: {
+    edit?: "ask" | "allow" | "deny";
+    bash?: ("ask" | "allow" | "deny") | Record<string, "ask" | "allow" | "deny">;
+    webfetch?: "ask" | "allow" | "deny";
+    doom_loop?: "ask" | "allow" | "deny";
+    external_directory?: "ask" | "allow" | "deny";
+  };
 }
 
 /** Launch and runtime settings for the Codex app-server harness backend. */
@@ -274,6 +283,8 @@ export interface HarnessClientLike {
   createSession(request: HarnessSessionStartRequest): Promise<{ id: string }>;
   sendMessage(sessionId: string, payload: HarnessMessagePayload): Promise<void>;
   stopSession?(sessionId: string): Promise<void>;
+  close?(): Promise<void> | void;
+  getServerUrl?(): string;
   listSessions?(): Promise<Array<{ id: string; title?: string }>>;
   getSessionStatuses?(): Promise<Record<string, { type: string }>>;
   on?(eventName: string, callback: (payload: { sessionId: string; message?: string }) => void): void;
@@ -282,6 +293,7 @@ export interface HarnessClientLike {
 /** Daemon-facing session manager contract used by `DaemonCore`. */
 export interface SessionManagerLike {
   initialize(): Promise<void>;
+  shutdown?(): Promise<void>;
   getSessionForIssue(repositoryKey: string, issueNumber: number): AgentSessionRecord | undefined;
   listSessions(): AgentSessionRecord[];
   startNewSession(issue: GitHubIssue, agentName: string, prompt: string): Promise<void>;

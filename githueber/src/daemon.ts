@@ -161,6 +161,8 @@ export class DaemonCore {
     if (failedSessionIds.length > 0) {
       throw new Error(`Failed to stop sessions: ${failedSessionIds.join(", ")}`);
     }
+
+    await this.sessionManager.shutdown?.();
   }
 
   /** Returns the in-memory view of all active agent sessions. */

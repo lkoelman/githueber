@@ -7,7 +7,7 @@
     "issueNumber": 1,
     "status": "RUNNING",
     "agentName": "worker",
-    "endpoint": "http://127.0.0.1:9000",
-    "updatedAt": "2026-04-14T13:24:04.073Z"
+    "endpoint": "opencode://embedded",
+    "updatedAt": "2026-04-14T14:37:22.180Z"
   }
 ]

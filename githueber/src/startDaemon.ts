@@ -72,7 +72,7 @@ export async function createSessionManagerForConfig(
       if (!config.opencode) {
         throw new Error("OpenCode harness is not configured for this daemon");
       }
-      const client = await createOpenCodeClient(config.opencode.endpoint);
+      const client = await createOpenCodeClient(config.opencode);
       harnessManagers.set(
         "opencode",
         new OpenCodeSessionManager(
@@ -80,7 +80,7 @@ export async function createSessionManagerForConfig(
           new OpenCodeSessionRegistry(
             join(options.stateRoot ?? process.cwd(), "runtime", "opencode-sessions.json")
           ),
-          config.opencode.endpoint
+          client.getServerUrl?.() ?? "opencode://embedded"
         )
       );
       continue;

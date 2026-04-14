@@ -42,7 +42,9 @@ execution:
   opencode_model: null
   timeout: 3600
 opencode:
-  endpoint: "http://127.0.0.1:9000"
+  permission:
+    external_directory: "allow"
+    bash: "ask"
 polling:
   interval_ms: 300000
 ipc:
@@ -82,7 +84,12 @@ describe("ConfigManager", () => {
     expect(config.isolation.worktrees).toBe("/tmp/githueber-worktrees");
     expect(config.execution.harness).toBe("opencode");
     expect(config.repositories.frontend.harness).toBeUndefined();
-    expect(config.opencode.endpoint).toBe("http://127.0.0.1:9000");
+    expect(config.opencode).toEqual({
+      permission: {
+        external_directory: "allow",
+        bash: "ask"
+      }
+    });
 
     rmSync(dir, { recursive: true, force: true });
   });

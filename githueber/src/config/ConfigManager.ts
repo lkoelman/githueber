@@ -38,6 +38,14 @@ function asNumber(value: unknown, key: string): number {
   return value;
 }
 
+/** Validates an optional numeric config leaf. */
+function asOptionalNumber(value: unknown, key: string): number | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  return asNumber(value, key);
+}
+
 /** Validates a harness selector against the supported daemon harnesses. */
 function asHarness(value: unknown, key: string): HarnessName {
   if (value === undefined || value === null || value === "") {
@@ -75,6 +83,62 @@ function asObject(value: unknown, key: string): ParsedConfig {
     throw new Error(`Expected mapping for ${key}`);
   }
   return value as ParsedConfig;
+}
+
+/** Validates one OpenCode permission rule string. */
+function asOpenCodePermissionRule(
+  value: unknown,
+  key: string
+): "ask" | "allow" | "deny" {
+  if (value === "ask" || value === "allow" || value === "deny") {
+    return value;
+  }
+
+  throw new Error(`Unsupported OpenCode permission for ${key}: ${String(value)}`);
+}
+
+/** Normalizes one optional OpenCode permission block from YAML into the runtime shape. */
+function normalizeOpenCodePermission(raw: unknown, keyPrefix: string): OpenCodeConfig["permission"] {
+  if (raw === undefined || raw === null) {
+    return undefined;
+  }
+
+  const permission = asObject(raw, keyPrefix);
+  const bash = permission.bash;
+
+  const edit =
+    permission.edit === undefined ? undefined : asOpenCodePermissionRule(permission.edit, `${keyPrefix}.edit`);
+  const normalizedBash =
+    bash === undefined
+      ? undefined
+      : typeof bash === "string"
+        ? asOpenCodePermissionRule(bash, `${keyPrefix}.bash`)
+        : Object.fromEntries(
+            Object.entries(asObject(bash, `${keyPrefix}.bash`)).map(([command, rule]) => [
+              command,
+              asOpenCodePermissionRule(rule, `${keyPrefix}.bash.${command}`)
+            ])
+          );
+  const webfetch =
+    permission.webfetch === undefined
+      ? undefined
+      : asOpenCodePermissionRule(permission.webfetch, `${keyPrefix}.webfetch`);
+  const doomLoop =
+    permission.doom_loop === undefined
+      ? undefined
+      : asOpenCodePermissionRule(permission.doom_loop, `${keyPrefix}.doom_loop`);
+  const externalDirectory =
+    permission.external_directory === undefined
+      ? undefined
+      : asOpenCodePermissionRule(permission.external_directory, `${keyPrefix}.external_directory`);
+
+  return {
+    ...(edit === undefined ? {} : { edit }),
+    ...(normalizedBash === undefined ? {} : { bash: normalizedBash }),
+    ...(webfetch === undefined ? {} : { webfetch }),
+    ...(doomLoop === undefined ? {} : { doom_loop: doomLoop }),
+    ...(externalDirectory === undefined ? {} : { external_directory: externalDirectory })
+  };
 }
 
 /** Normalizes the repository label block into the daemon's internal shape. */
@@ -148,8 +212,17 @@ function normalizeOpenCodeConfig(raw: ParsedConfig, required: boolean): OpenCode
     return undefined;
   }
 
+  const hostname =
+    raw.hostname === undefined || raw.hostname === null ? undefined : asString(raw.hostname, "opencode.hostname");
+  const port = asOptionalNumber(raw.port, "opencode.port");
+  const timeout = asOptionalNumber(raw.timeout, "opencode.timeout");
+  const permission = normalizeOpenCodePermission(raw.permission, "opencode.permission");
+
   return {
-    endpoint: asString(raw.endpoint, "opencode.endpoint")
+    ...(hostname === undefined ? {} : { hostname }),
+    ...(port === undefined ? {} : { port }),
+    ...(timeout === undefined ? {} : { timeout }),
+    ...(permission === undefined ? {} : { permission })
   };
 }
 
