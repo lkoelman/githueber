@@ -17,7 +17,7 @@
   <img alt="GitHub License" src="https://img.shields.io/github/license/lkoelman/githueber">
 </p>
 
-Githueber lets you use GitHub as a frontend to manage your coding harness and sessions right on your local device. The philosophy is "GitHub is already a very good UI/UX for managing a repo, its issues and PRs. So let's use it as the control center for coordinating your agents".
+Githueber lets you use GitHub as a frontend to manage your coding harness on your local device. The goal is to have a local daemon watch your github projects and spawn resumable sessions in OpenCode|Claude|Codex , so you can drop in when you feel like. The philosophy is "GitHub is a great UX for managing a project using issues and PRs. So let's use it as the control center for our agents".
 
 ## Why Githueber?
 
