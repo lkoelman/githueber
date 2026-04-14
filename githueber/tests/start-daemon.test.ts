@@ -1,4 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createSessionManagerForConfig, createShutdownHandler, resolveRepositoryHarness } from "../src/startDaemon.ts";
 import type { DaemonConfig, GitHubIssue, HarnessClientLike, SessionManagerLike } from "../src/models/types.ts";
 
@@ -36,7 +39,7 @@ describe("createShutdownHandler", () => {
 
     expect(infos).toEqual([
       {
-        message: "Closing ACP sessions before shutdown.",
+        message: "Closing harness sessions before shutdown.",
         meta: { signal: "SIGINT" }
       }
     ]);
@@ -219,5 +222,63 @@ describe("createSessionManagerForConfig", () => {
     ]);
     expect(manager.getSessionForIssue("frontend", 1)?.sessionId).toBe("opencode-session");
     expect(manager.getSessionForIssue("backend", 1)?.sessionId).toBe("codex-session");
+  });
+
+  test("restores persisted OpenCode sessions for paused issues on initialize", async () => {
+    const runtimeRoot = mkdtempSync(join(tmpdir(), "githueber-runtime-"));
+    const runtimeDir = join(runtimeRoot, "runtime");
+    mkdirSync(runtimeDir, { recursive: true });
+    writeFileSync(
+      join(runtimeDir, "opencode-sessions.json"),
+      JSON.stringify([
+        {
+          sessionId: "ses_restored",
+          repositoryKey: "frontend",
+          repoOwner: "acme",
+          repoName: "frontend",
+          issueNumber: 42,
+          status: "PAUSED_AWAITING_APPROVAL",
+          agentName: "github-worker-agent",
+          endpoint: "http://127.0.0.1:9000",
+          updatedAt: "2026-04-14T00:00:00.000Z"
+        }
+      ])
+    );
+
+    const manager = await createSessionManagerForConfig(
+      config,
+      { stateRoot: runtimeRoot } as any,
+      {
+        createOpenCodeClient: async () =>
+          ({
+            async connect(): Promise<void> {},
+            async createSession(): Promise<{ id: string }> {
+              return { id: "opencode-session" };
+            },
+            async sendMessage(): Promise<void> {},
+            async stopSession(): Promise<void> {},
+            async listSessions(): Promise<Array<{ id: string; title?: string }>> {
+              return [{ id: "ses_restored", title: "githueber frontend#42 github-worker-agent" }];
+            },
+            async getSessionStatuses(): Promise<Record<string, { type: string }>> {
+              return { ses_restored: { type: "idle" } };
+            },
+            on() {}
+          } as any),
+        createCodexClient: () => createHarnessStub("codex")
+      }
+    );
+
+    await manager.initialize();
+
+    expect(manager.getSessionForIssue("frontend", 42)).toEqual({
+      sessionId: "ses_restored",
+      repositoryKey: "frontend",
+      repoOwner: "acme",
+      repoName: "frontend",
+      issueNumber: 42,
+      status: "PAUSED_AWAITING_APPROVAL",
+      agentName: "github-worker-agent"
+    });
   });
 });

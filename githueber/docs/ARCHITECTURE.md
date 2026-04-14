@@ -73,7 +73,7 @@
   - `getConfig(): DaemonConfig`
   - `updateValue(key, value)`
 
-`ConfigManager` is the root of dependency construction. `src/index.ts` uses it to build the runtime graph for all repositories and shared settings such as ACP endpoint, polling interval, and socket path.
+`ConfigManager` is the root of dependency construction. `src/index.ts` uses it to build the runtime graph for all repositories and shared settings such as harness endpoints, polling interval, and socket path.
 
 ### 2. Shared Domain Model
 
@@ -89,7 +89,7 @@
   - `RouterLike`
   - IPC request/response types
 
-These types are the contract between configuration, polling, routing, ACP session management, and IPC.
+These types are the contract between configuration, polling, routing, session management, and IPC.
 
 ### 3. GitHub Integration Layer
 
@@ -138,9 +138,11 @@ The prompt builder converts a `GitHubIssue` into structured context, including r
   - [HarnessSessionManager.ts](../src/sessionManager/HarnessSessionManager.ts)
   - [MultiHarnessSessionManager.ts](../src/sessionManager/MultiHarnessSessionManager.ts)
   - [OpenCodeHarnessClient.ts](../src/opencode/OpenCodeHarnessClient.ts)
+  - [OpenCodeSessionManager.ts](../src/opencode/OpenCodeSessionManager.ts)
+  - [OpenCodeSessionRegistry.ts](../src/opencode/OpenCodeSessionRegistry.ts)
   - [CodexHarnessClient.ts](../src/codex/CodexHarnessClient.ts)
 - Main interfaces:
-  - `createOpenCodeHarnessClient(endpoint, fetchImpl?)`
+  - `createOpenCodeHarnessClient(endpoint, deps?)`
   - `createCodexHarnessClient(config, spawnImpl?)`
   - `initialize()`
   - `getSessionForIssue(repositoryKey, issueNumber)`
@@ -153,7 +155,7 @@ The prompt builder converts a `GitHubIssue` into structured context, including r
 
 `HarnessSessionManager` stores active sessions keyed by repository plus issue number so identical issue numbers in different repositories remain isolated. `MultiHarnessSessionManager` composes one harness-specific manager per required backend and routes repository-scoped issues to the correct one at runtime.
 
-The OpenCode harness client opens `/global/event`, translates session turn updates into daemon pause/completion lifecycle events, and reuses the previous OpenCode transport. The Codex harness client launches `codex app-server` over stdio, performs the initialize handshake, starts a thread and turn, and maps app-server approval or user-input states into the daemon's normalized pause/completion lifecycle.
+The OpenCode harness client uses the official `@opencode-ai/sdk` against an `opencode serve` backend, subscribes to the server event stream, and translates session turn updates into daemon pause/completion lifecycle events. `OpenCodeSessionManager` persists the repository-issue-to-session mapping in `runtime/opencode-sessions.json` so paused or still-running OpenCode sessions can be restored after daemon restart. The Codex harness client launches `codex app-server` over stdio, performs the initialize handshake, starts a thread and turn, and maps app-server approval or user-input states into the daemon's normalized pause/completion lifecycle.
 
 ### 7. Daemon Coordinator
 
@@ -230,6 +232,8 @@ The CLI does not implement daemon behavior itself. It translates shell arguments
 5. The harness performs the non-deterministic work: read issues, plan, code, test, and create PRs.
 6. Harness pause or completion events flow back into `DaemonCore`, which applies label changes in GitHub.
 7. Optional session-event subscribers, such as the `--echo` console sink, observe the same session interaction stream without affecting daemon control flow.
+
+For OpenCode, daemon-managed sessions are native OpenCode sessions with stable ids and titles. Operators can use those ids with OpenCode itself, for example `opencode --session <id>` or `opencode attach <url> --session <id>`.
 
 ### CLI to Daemon through IPC
 

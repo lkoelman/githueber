@@ -54,7 +54,7 @@ const config: DaemonConfig = {
   polling: {
     intervalMs: 60000
   },
-  acp: {
+  opencode: {
     endpoint: "http://127.0.0.1:9000"
   },
   ipc: {
@@ -142,7 +142,7 @@ describe("StateRouter", () => {
 
     expect(decision).toEqual({
       action: "RESUME_APPROVED",
-      acpSessionId: "session-1",
+      sessionId: "session-1",
       promptContext: "The user has approved your plan. Proceed with execution and PR creation."
     });
   });

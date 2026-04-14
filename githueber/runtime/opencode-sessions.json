@@ -1,0 +1,13 @@
+[
+  {
+    "sessionId": "opencode-session",
+    "repositoryKey": "frontend",
+    "repoOwner": "acme",
+    "repoName": "frontend",
+    "issueNumber": 1,
+    "status": "RUNNING",
+    "agentName": "worker",
+    "endpoint": "http://127.0.0.1:9000",
+    "updatedAt": "2026-04-14T13:24:04.073Z"
+  }
+]

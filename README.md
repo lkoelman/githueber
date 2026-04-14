@@ -84,10 +84,10 @@ bun link
 
 ## Usage
 
-1. Start the OpenCode ACP server in its own shell:
+1. Start the OpenCode server in its own shell:
 
 ```bash
-opencode acp --port 9000
+opencode serve --port 9000
 ```
 
 2. Start the Githueber daemon service:
@@ -103,7 +103,7 @@ export GITHUEBER_CONFIG=/path/to/githueber-config.yaml
 gbr start [--echo]
 ```
 
-Press `Ctrl+C` to stop the daemon gracefully. It will print a shutdown message, stop polling, and close tracked ACP sessions before exiting.
+Press `Ctrl+C` to stop the daemon gracefully. It will print a shutdown message, stop polling, and close tracked harness sessions before exiting.
 
 3. Make changes on Github and wait for `polling.intervalMs` or run `gbr poll`
 
@@ -118,9 +118,9 @@ Available commands:
 - `gbr start`: start the daemon service directly from the CLI
   - `--harness <opencode|codex>`: override the configured default harness for repositories that do not set their own `harness`
   - `--echo`: stream user-visible Codex/OpenCode session output to stdout in real time while keeping lifecycle markers for prompts, pauses, and completion
-- `gbr sessions`: list active ACP sessions, including repository key and owner/repo identity
+- `gbr sessions`: list active daemon-tracked sessions, including the native harness session id plus repository key and owner/repo identity
 - `gbr poll`: trigger an immediate GitHub poll cycle across all configured repositories and print the fetched and dispatched issues
-- `gbr stop <session-id>`: stop a tracked ACP session by session id
+- `gbr stop <session-id>`: stop a tracked harness session by session id
 - `gbr config <key> <value>`: change an in-memory config value in the running daemon
 
 Global options:
@@ -188,7 +188,9 @@ Harness resolution precedence is:
 
 When `isolation.worktrees` is set to an absolute directory, prompt generation switches issue execution into a deterministic per-issue worktree path like `/repos/worktrees/your-org-frontend-repo-issue-42`. Set it to `null` or `false` to keep working directly in `local_repo_path`.
 
-The ACP integration also emits a structured session interaction stream inside the daemon. `gbr start --echo` now renders streamed user-visible session output from that event stream in real time, while the same interface remains suitable for a future `gbr follow <session-id>` IPC command.
+The harness integrations emit a structured session interaction stream inside the daemon. `gbr start --echo` renders streamed user-visible session output from that event stream in real time, while the same interface remains suitable for a future `gbr follow <session-id>` IPC command.
+
+For OpenCode, Githueber now uses the official SDK against the `opencode serve` HTTP server. Daemon-created OpenCode sessions are native OpenCode sessions, so they appear in `opencode session list`. Githueber also persists the repository/issue-to-session mapping under the config directory so paused or still-running OpenCode sessions can be restored after daemon restart. Once you have the session id, you can continue it directly with OpenCode using `opencode --session <id>` or attach to a running server with `opencode attach http://localhost:9000 --session <id>`.
 
 ## Codex Harness Notes
 

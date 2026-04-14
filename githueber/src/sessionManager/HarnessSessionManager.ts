@@ -19,7 +19,7 @@ export class HarnessSessionManager implements SessionManagerLike {
   private readonly completionListeners = new Set<(sessionId: string) => Promise<void> | void>();
   private readonly sessionEventListeners = new Set<(event: SessionInteractionEvent) => void>();
 
-  constructor(private readonly harnessClient: HarnessClientLike) {
+  constructor(protected readonly harnessClient: HarnessClientLike) {
     this.bindEvents();
   }
 
@@ -120,6 +120,11 @@ export class HarnessSessionManager implements SessionManagerLike {
     return Array.from(this.activeSessions.values());
   }
 
+  /** Restores a previously tracked session into the in-memory active-session table. */
+  restoreSession(record: AgentSessionRecord): void {
+    this.activeSessions.set(issueKey(record.repositoryKey, record.issueNumber), record);
+  }
+
   /** Creates a new harness session for an issue and records the resulting runtime session id. */
   async startNewSession(issue: GitHubIssue, agentName: string, prompt: string): Promise<void> {
     const key = issueKey(issue.repositoryKey, issue.number);
@@ -148,7 +153,8 @@ export class HarnessSessionManager implements SessionManagerLike {
     const session = await this.harnessClient.createSession({
       agentDefinition: agentName,
       initialPrompt: prompt,
-      cwd: issue.localRepoPath
+      cwd: issue.localRepoPath,
+      title: `githueber ${issue.repositoryKey}#${issue.number} ${agentName}`
     });
 
     this.activeSessions.set(key, {

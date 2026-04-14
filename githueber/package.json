@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^0.18.1",
-    "@octokit/rest": "^22.0.1"
+    "@octokit/rest": "^22.0.1",
+    "@opencode-ai/sdk": "^1.4.3"
   }
 }

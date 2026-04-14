@@ -4,64 +4,77 @@ import { createACPClient } from "../src/opencode/OpenCodeHarnessClient.ts";
 import type { GitHubIssue } from "../src/models/types.ts";
 
 describe("createACPClient", () => {
-  test("uses the OpenCode session API and listens to lifecycle events from the global SSE stream", async () => {
-    const requests: Array<{ url: string; method: string; body?: unknown }> = [];
-    let controller: ReadableStreamDefaultController<Uint8Array> | undefined;
-    const encoder = new TextEncoder();
-
-    const fetchStub: typeof fetch = async (input, init) => {
-      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-      const method = init?.method ?? "GET";
-      const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined;
-
-      requests.push({ url, method, body });
-
-      if (url.endsWith("/global/health")) {
-        return new Response(JSON.stringify({ healthy: true, version: "1.3.13" }), {
-          status: 200,
-          headers: { "content-type": "application/json" }
-        });
-      }
-
-      if (url.endsWith("/global/event")) {
-        return new Response(
-          new ReadableStream({
-            start(streamController) {
-              controller = streamController;
-              streamController.enqueue(
-                encoder.encode('data: {"payload":{"type":"server.connected","properties":{}}}\n\n')
-              );
-            }
-          }),
-          {
-            status: 200,
-            headers: { "content-type": "text/event-stream" }
+  test("uses the OpenCode SDK and listens to lifecycle events from the event stream", async () => {
+    const calls: Array<{ method: string; payload?: unknown }> = [];
+    const events = [
+      { type: "server.connected", properties: {} },
+      { type: "session.status", properties: { sessionID: "ses_123", status: { type: "busy" } } },
+      {
+        type: "message.part.updated",
+        properties: {
+          part: {
+            sessionID: "ses_123",
+            messageID: "msg_1",
+            type: "text",
+            text: "Plan ready. [AWAITING_APPROVAL]"
           }
-        );
+        }
+      },
+      { type: "session.status", properties: { sessionID: "ses_123", status: { type: "idle" } } },
+      { type: "session.status", properties: { sessionID: "ses_123", status: { type: "busy" } } },
+      {
+        type: "message.part.updated",
+        properties: {
+          part: {
+            sessionID: "ses_123",
+            messageID: "msg_2",
+            type: "text",
+            text: "Implementation done."
+          }
+        }
+      },
+      { type: "session.status", properties: { sessionID: "ses_123", status: { type: "idle" } } }
+    ];
+
+    async function* eventStream(): AsyncGenerator<any> {
+      for (const event of events) {
+        yield event;
       }
+    }
 
-      if (url.endsWith("/session") && method === "POST") {
-        return new Response(JSON.stringify({ id: "ses_123" }), {
-          status: 200,
-          headers: { "content-type": "application/json" }
-        });
-      }
-
-      if (url.endsWith("/session/ses_123/prompt_async")) {
-        return new Response(null, { status: 204 });
-      }
-
-      if (url.endsWith("/session/ses_123/abort")) {
-        return new Response(JSON.stringify(true), {
-          status: 200,
-          headers: { "content-type": "application/json" }
-        });
-      }
-
-      throw new Error(`Unexpected request: ${method} ${url}`);
-    };
-
-    const client = await createACPClient("http://127.0.0.1:9000", fetchStub);
+    const client = await createACPClient("http://127.0.0.1:9000", {
+      createClient: () =>
+        ({
+          global: {
+            health: async () => {
+              calls.push({ method: "global.health" });
+              return { data: { healthy: true, version: "1.3.13" } };
+            }
+          },
+          event: {
+            subscribe: async () => {
+              calls.push({ method: "event.subscribe" });
+              return { stream: eventStream() };
+            }
+          },
+          session: {
+            create: async (payload: unknown) => {
+              calls.push({ method: "session.create", payload });
+              return { data: { id: "ses_123" } };
+            },
+            promptAsync: async (payload: unknown) => {
+              calls.push({ method: "session.promptAsync", payload });
+              return { data: { info: { id: "msg_x" }, parts: [] } };
+            },
+            abort: async (payload: unknown) => {
+              calls.push({ method: "session.abort", payload });
+              return { data: true };
+            },
+            list: async () => ({ data: [] }),
+            status: async () => ({ data: {} })
+          }
+        }) as any
+    });
     const paused: string[] = [];
     const completed: string[] = [];
     const deltas: Array<{ sessionId: string; message: string }> = [];
@@ -76,69 +89,54 @@ describe("createACPClient", () => {
 
     const session = await client.createSession({
       agentDefinition: "build",
-      initialPrompt: "Start working on issue 42."
+      initialPrompt: "Start working on issue 42.",
+      cwd: "/repos/frontend",
+      title: "githueber frontend#42 build"
     });
 
     await client.sendMessage(session.id, { text: "User approved. Proceed." });
     await client.stopSession?.(session.id);
 
-    controller?.enqueue(
-      encoder.encode(
-        [
-          'data: {"payload":{"type":"session.status","properties":{"sessionID":"ses_123","status":{"type":"busy"}}}}',
-          "",
-          'data: {"payload":{"type":"message.part.delta","properties":{"sessionID":"ses_123","messageID":"msg_1","partID":"prt_1","field":"text","delta":"Plan ready. [AWAITING_APPROVAL]"}}}',
-          "",
-          'data: {"payload":{"type":"session.status","properties":{"sessionID":"ses_123","status":{"type":"idle"}}}}',
-          "",
-          'data: {"payload":{"type":"session.status","properties":{"sessionID":"ses_123","status":{"type":"busy"}}}}',
-          "",
-          'data: {"payload":{"type":"message.part.delta","properties":{"sessionID":"ses_123","messageID":"msg_2","partID":"prt_2","field":"text","delta":"Implementation done."}}}',
-          "",
-          'data: {"payload":{"type":"session.status","properties":{"sessionID":"ses_123","status":{"type":"idle"}}}}',
-          "",
-        ].join("\n")
-      )
-    );
-    controller?.close();
-
     await new Promise((resolve) => setTimeout(resolve, 10));
 
-    expect(requests).toEqual([
+    expect(calls).toEqual([
       {
-        url: "http://127.0.0.1:9000/global/health",
-        method: "GET",
-        body: undefined
+        method: "global.health"
       },
       {
-        url: "http://127.0.0.1:9000/global/event",
-        method: "GET",
-        body: undefined
+        method: "event.subscribe"
       },
       {
-        url: "http://127.0.0.1:9000/session",
-        method: "POST",
-        body: { title: "githueber:build" }
-      },
-      {
-        url: "http://127.0.0.1:9000/session/ses_123/prompt_async",
-        method: "POST",
-        body: {
-          agent: "build",
-          parts: [{ type: "text", text: "Start working on issue 42." }]
+        method: "session.create",
+        payload: {
+          body: { title: "githueber frontend#42 build" },
+          query: { directory: "/repos/frontend" }
         }
       },
       {
-        url: "http://127.0.0.1:9000/session/ses_123/prompt_async",
-        method: "POST",
-        body: {
-          parts: [{ type: "text", text: "User approved. Proceed." }]
+        method: "session.promptAsync",
+        payload: {
+          path: { id: "ses_123" },
+          body: {
+            agent: "build",
+            parts: [{ type: "text", text: "Start working on issue 42." }]
+          }
         }
       },
       {
-        url: "http://127.0.0.1:9000/session/ses_123/abort",
-        method: "POST",
-        body: undefined
+        method: "session.promptAsync",
+        payload: {
+          path: { id: "ses_123" },
+          body: {
+            parts: [{ type: "text", text: "User approved. Proceed." }]
+          }
+        }
+      },
+      {
+        method: "session.abort",
+        payload: {
+          path: { id: "ses_123" }
+        }
       }
     ]);
     expect(deltas).toEqual([

@@ -23,7 +23,7 @@ export class StateRouter {
       if (latestComment?.startsWith(execution.approvalComment)) {
         return {
           action: "RESUME_APPROVED",
-          acpSessionId: activeSession.sessionId,
+          sessionId: activeSession.sessionId,
           promptContext: "The user has approved your plan. Proceed with execution and PR creation."
         };
       }
@@ -31,7 +31,7 @@ export class StateRouter {
       if (latestComment?.startsWith(execution.reviseComment)) {
         return {
           action: "RESUME_REVISED",
-          acpSessionId: activeSession.sessionId,
+          sessionId: activeSession.sessionId,
           promptContext: `The user requested plan revisions: ${latestComment}`
         };
       }

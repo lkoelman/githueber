@@ -101,7 +101,7 @@ export class DaemonCore {
         };
       case "RESUME_APPROVED":
         await this.sessionManager.sendMessageToSession(
-          decision.acpSessionId!,
+          decision.sessionId!,
           decision.promptContext ?? "User approved. Proceed."
         );
         await poller.updateIssueLabel(issue.number, labels.processing, labels.awaitPlan);
@@ -112,7 +112,7 @@ export class DaemonCore {
         };
       case "RESUME_REVISED":
         await this.sessionManager.sendMessageToSession(
-          decision.acpSessionId!,
+          decision.sessionId!,
           decision.promptContext ?? "Please revise the plan."
         );
         await poller.updateIssueLabel(issue.number, labels.revising, labels.awaitPlan);

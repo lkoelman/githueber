@@ -92,7 +92,7 @@ export interface RouteDecision {
   /** Prompt text or steering message that should be sent to the harness. */
   promptContext?: string;
   /** Existing harness session id to resume for approval/revision actions. */
-  acpSessionId?: string;
+  sessionId?: string;
 }
 
 /** In-memory record linking one harness session to one repository-scoped GitHub issue. */
@@ -258,6 +258,8 @@ export interface HarnessSessionStartRequest {
   initialPrompt: string;
   /** Optional working directory for harnesses that support repository-scoped startup. */
   cwd?: string;
+  /** Optional user-visible title for harnesses that persist named sessions. */
+  title?: string;
 }
 
 /** One follow-up message sent into an existing harness session. */
@@ -272,6 +274,8 @@ export interface HarnessClientLike {
   createSession(request: HarnessSessionStartRequest): Promise<{ id: string }>;
   sendMessage(sessionId: string, payload: HarnessMessagePayload): Promise<void>;
   stopSession?(sessionId: string): Promise<void>;
+  listSessions?(): Promise<Array<{ id: string; title?: string }>>;
+  getSessionStatuses?(): Promise<Record<string, { type: string }>>;
   on?(eventName: string, callback: (payload: { sessionId: string; message?: string }) => void): void;
 }
 

@@ -1,3 +1,4 @@
+import { dirname, join } from "node:path";
 import { ConfigManager } from "./config/ConfigManager.ts";
 import { createSessionEventEchoListener } from "./sessionManager/sessionEvents.ts";
 import { createCodexHarnessClient } from "./codex/CodexHarnessClient.ts";
@@ -8,6 +9,8 @@ import { MultiHarnessSessionManager } from "./sessionManager/MultiHarnessSession
 import { IPCServer } from "./ipc/IPCServer.ts";
 import type { DaemonConfig, HarnessName, RepositoryConfig, SessionManagerLike } from "./models/types.ts";
 import { createOpenCodeHarnessClient } from "./opencode/OpenCodeHarnessClient.ts";
+import { OpenCodeSessionRegistry } from "./opencode/OpenCodeSessionRegistry.ts";
+import { OpenCodeSessionManager } from "./opencode/OpenCodeSessionManager.ts";
 import { StateRouter } from "./router/StateRouter.ts";
 import { logger } from "./utils/logger.ts";
 
@@ -32,6 +35,7 @@ export interface StartDaemonOptions {
   echoSessionEvents?: boolean;
   sessionEventWriter?: (chunk: string) => void;
   harnessOverride?: HarnessName;
+  stateRoot?: string;
 }
 
 /** Resolves the runtime harness for one repository using repo, CLI, config, then implicit defaults. */
@@ -51,7 +55,7 @@ interface SessionManagerFactoryDeps {
 /** Builds only the harness session managers required by the resolved repository harness set. */
 export async function createSessionManagerForConfig(
   config: DaemonConfig,
-  options: Pick<StartDaemonOptions, "harnessOverride"> = {},
+  options: Pick<StartDaemonOptions, "harnessOverride" | "stateRoot"> = {},
   deps: SessionManagerFactoryDeps = {}
 ): Promise<SessionManagerLike> {
   const createOpenCodeClient = deps.createOpenCodeClient ?? createOpenCodeHarnessClient;
@@ -69,7 +73,16 @@ export async function createSessionManagerForConfig(
         throw new Error("OpenCode harness is not configured for this daemon");
       }
       const client = await createOpenCodeClient(config.opencode.endpoint);
-      harnessManagers.set("opencode", new HarnessSessionManager(client));
+      harnessManagers.set(
+        "opencode",
+        new OpenCodeSessionManager(
+          client,
+          new OpenCodeSessionRegistry(
+            join(options.stateRoot ?? process.cwd(), "runtime", "opencode-sessions.json")
+          ),
+          config.opencode.endpoint
+        )
+      );
       continue;
     }
 
@@ -99,14 +112,14 @@ export function createShutdownHandler(
     }
 
     shuttingDown = true;
-    logger.info("Closing ACP sessions before shutdown.", { signal });
+    logger.info("Closing harness sessions before shutdown.", { signal });
 
     try {
       await daemon.stop();
       ipc.stop();
       processRef.exit(0);
     } catch (error: any) {
-      logger.error("Failed to close ACP sessions during shutdown.", {
+      logger.error("Failed to close harness sessions during shutdown.", {
         signal,
         error: error.message
       });
@@ -161,7 +174,10 @@ export async function startDaemon(options: StartDaemonOptions = {}): Promise<voi
   );
 
   const router = new StateRouter(config);
-  const sessionManager = await createSessionManagerForConfig(config, options);
+  const sessionManager = await createSessionManagerForConfig(config, {
+    ...options,
+    stateRoot: options.stateRoot ?? dirname(configPath)
+  });
 
   if (options.echoSessionEvents) {
     sessionManager.onSessionEvent(
