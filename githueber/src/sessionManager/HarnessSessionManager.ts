@@ -3,8 +3,7 @@ import type {
   GitHubIssue,
   HarnessClientLike,
   SessionInteractionEvent,
-  SessionManagerLike,
-  SessionStatus
+  SessionManagerLike
 } from "../models/types.ts";
 
 /** Produces a repository-scoped issue key so identical issue numbers cannot collide. */
@@ -39,7 +38,15 @@ export class HarnessSessionManager implements SessionManagerLike {
     });
 
     this.harnessClient.on?.("sessionPaused", ({ sessionId }) => {
-      this.updateStatus(sessionId, "PAUSED_AWAITING_APPROVAL");
+      const timestamp = new Date().toISOString();
+      this.updateRecord(sessionId, (record) => ({
+        ...record,
+        status: "PAUSED_AWAITING_APPROVAL",
+        lastActiveAt: timestamp,
+        runtimeReleasedAt: timestamp,
+        runtimeReleaseReason: "awaiting_user",
+        resumability: "resumable"
+      }));
       this.emitSessionEvent({
         direction: "INBOUND",
         kind: "SESSION_PAUSED",
@@ -48,10 +55,16 @@ export class HarnessSessionManager implements SessionManagerLike {
       for (const listener of this.pauseListeners) {
         void listener(sessionId);
       }
+      void this.releaseSessionRuntime(sessionId);
     });
 
     this.harnessClient.on?.("sessionCompleted", ({ sessionId }) => {
-      this.updateStatus(sessionId, "COMPLETED");
+      const timestamp = new Date().toISOString();
+      this.updateRecord(sessionId, (record) => ({
+        ...record,
+        status: "COMPLETED",
+        lastActiveAt: timestamp
+      }));
       this.emitSessionEvent({
         direction: "INBOUND",
         kind: "SESSION_COMPLETED",
@@ -63,11 +76,14 @@ export class HarnessSessionManager implements SessionManagerLike {
     });
   }
 
-  /** Updates the cached status for the tracked session record with the given session id. */
-  private updateStatus(sessionId: string, status: SessionStatus): void {
+  /** Updates the cached tracked session record with the given session id. */
+  private updateRecord(
+    sessionId: string,
+    update: (record: AgentSessionRecord) => AgentSessionRecord
+  ): void {
     for (const [key, record] of this.activeSessions.entries()) {
       if (record.sessionId === sessionId) {
-        this.activeSessions.set(key, { ...record, status });
+        this.activeSessions.set(key, update(record));
       }
     }
   }
@@ -133,6 +149,7 @@ export class HarnessSessionManager implements SessionManagerLike {
   /** Creates a new harness session for an issue and records the resulting runtime session id. */
   async startNewSession(issue: GitHubIssue, agentName: string, prompt: string): Promise<void> {
     const key = issueKey(issue.repositoryKey, issue.number);
+    const startedAt = new Date().toISOString();
 
     this.emitSessionEvent({
       direction: "CONTROL",
@@ -152,7 +169,9 @@ export class HarnessSessionManager implements SessionManagerLike {
       repoName: issue.repoName,
       issueNumber: issue.number,
       status: "INITIALIZING",
-      agentName
+      agentName,
+      startedAt,
+      lastActiveAt: startedAt
     });
 
     const session = await this.harnessClient.createSession({
@@ -162,6 +181,7 @@ export class HarnessSessionManager implements SessionManagerLike {
       title: `githueber ${issue.repositoryKey}#${issue.number} ${agentName}`
     });
 
+    const runningAt = new Date().toISOString();
     this.activeSessions.set(key, {
       sessionId: session.id,
       repositoryKey: issue.repositoryKey,
@@ -169,7 +189,9 @@ export class HarnessSessionManager implements SessionManagerLike {
       repoName: issue.repoName,
       issueNumber: issue.number,
       status: "RUNNING",
-      agentName
+      agentName,
+      startedAt,
+      lastActiveAt: runningAt
     });
 
     this.emitSessionEvent({
@@ -187,13 +209,44 @@ export class HarnessSessionManager implements SessionManagerLike {
 
   /** Sends a follow-up prompt to an existing harness session, typically after human feedback. */
   async sendMessageToSession(sessionId: string, message: string): Promise<void> {
-    await this.harnessClient.sendMessage(sessionId, { text: message });
+    const session = this.findSessionById(sessionId);
+    const payload = { text: message };
+
+    if (session?.runtimeReleasedAt) {
+      if (!this.harnessClient.resumeSession) {
+        throw new Error(`Harness cannot resume released session: ${sessionId}`);
+      }
+      await this.harnessClient.resumeSession(sessionId, payload);
+    } else {
+      await this.harnessClient.sendMessage(sessionId, payload);
+    }
+
+    const timestamp = new Date().toISOString();
+    this.updateRecord(sessionId, (record) => {
+      const {
+        runtimeReleasedAt: _runtimeReleasedAt,
+        runtimeReleaseReason: _runtimeReleaseReason,
+        ...rest
+      } = record;
+      return {
+        ...rest,
+        status: "RUNNING",
+        lastActiveAt: timestamp,
+        resumability: record.resumability === "resumable" ? "open" : record.resumability
+      };
+    });
+
     this.emitSessionEvent({
       direction: "OUTBOUND",
       kind: "PROMPT_SENT",
       message,
       ...this.getSessionEventContext(sessionId)
     });
+  }
+
+  /** Releases the live runtime while preserving the daemon session mapping. */
+  async releaseSessionRuntime(sessionId: string): Promise<void> {
+    await this.harnessClient.releaseSessionRuntime?.(sessionId);
   }
 
   /** Stops a tracked session and removes its repository-scoped mapping from memory. */

@@ -189,6 +189,18 @@ class OpenCodeSdkClient implements HarnessClientLike {
     await this.sendPrompt(sessionId, payload.text);
   }
 
+  /** Releases the active OpenCode turn while preserving the native session id. */
+  async releaseSessionRuntime(sessionId: string): Promise<void> {
+    await this.client.session.abort({
+      path: { id: sessionId }
+    });
+  }
+
+  /** Reuses the existing OpenCode session id for feedback after a released pause. */
+  async resumeSession(sessionId: string, payload: HarnessMessagePayload): Promise<void> {
+    await this.sendMessage(sessionId, payload);
+  }
+
   /** Requests that OpenCode abort the active turn for a tracked session. */
   async stopSession(sessionId: string): Promise<void> {
     await this.client.session.abort({

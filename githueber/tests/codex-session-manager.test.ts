@@ -54,21 +54,21 @@ describe("CodexSessionManager", () => {
 
     await manager.startNewSession(makeIssue(), "github-worker-agent", "prompt");
 
-    expect(manager.listSessions()).toEqual([
-      {
-        sessionId: "thr_new",
-        repositoryKey: "frontend",
-        repoOwner: "acme",
-        repoName: "frontend",
-        issueNumber: 42,
-        status: "RUNNING",
-        agentName: "github-worker-agent",
-        harness: "codex",
-        title: "githueber frontend#42 github-worker-agent",
-        resumability: "open",
-        resumeHint: "codex resume --include-non-interactive thr_new"
-      }
-    ]);
+    expect(manager.listSessions()[0]).toMatchObject({
+      sessionId: "thr_new",
+      repositoryKey: "frontend",
+      repoOwner: "acme",
+      repoName: "frontend",
+      issueNumber: 42,
+      status: "RUNNING",
+      agentName: "github-worker-agent",
+      harness: "codex",
+      title: "githueber frontend#42 github-worker-agent",
+      resumability: "open",
+      resumeHint: "codex resume --include-non-interactive thr_new"
+    });
+    expect(manager.listSessions()[0]?.startedAt).toBeString();
+    expect(manager.listSessions()[0]?.lastActiveAt).toBeString();
 
     expect(registry.load()[0]).toMatchObject({
       sessionId: "thr_new",
@@ -151,5 +151,58 @@ describe("CodexSessionManager", () => {
       resumeHint: "codex resume --include-non-interactive thr_restored"
     });
     expect(registry.load().map((record) => record.sessionId)).toEqual(["thr_restored"]);
+  });
+
+  test("persists paused Codex sessions as released and natively resumable", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "githueber-codex-paused-"));
+    const registry = new CodexSessionRegistry(join(dir, "codex-sessions.json"));
+    let pauseListener: ((payload: { sessionId: string }) => void) | undefined;
+    const calls: string[] = [];
+    const manager = new CodexSessionManager(
+      createClientStub({
+        async releaseSessionRuntime(sessionId): Promise<void> {
+          calls.push(`release:${sessionId}`);
+        },
+        async resumeSession(sessionId, payload): Promise<void> {
+          calls.push(`resume:${sessionId}:${payload.text}`);
+        },
+        on(eventName, callback) {
+          if (eventName === "sessionPaused") {
+            pauseListener = callback;
+          }
+        }
+      }),
+      registry
+    );
+
+    await manager.startNewSession(makeIssue(), "github-worker-agent", "prompt");
+    pauseListener?.({ sessionId: "thr_new" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(calls).toEqual(["release:thr_new"]);
+    expect(manager.getSessionForIssue("frontend", 42)).toMatchObject({
+      status: "PAUSED_AWAITING_APPROVAL",
+      resumability: "resumable",
+      runtimeReleaseReason: "awaiting_user",
+      resumeHint: "codex resume --include-non-interactive thr_new"
+    });
+    expect(registry.load()[0]).toMatchObject({
+      status: "PAUSED_AWAITING_APPROVAL",
+      resumability: "resumable",
+      runtimeReleaseReason: "awaiting_user",
+      resumeHint: "codex resume --include-non-interactive thr_new"
+    });
+    expect(registry.load()[0]?.runtimeReleasedAt).toBeString();
+
+    await manager.sendMessageToSession("thr_new", "User approved. Proceed.");
+
+    expect(calls).toEqual(["release:thr_new", "resume:thr_new:User approved. Proceed."]);
+    const resumedRecord = registry.load()[0];
+    expect(resumedRecord).toMatchObject({
+      status: "RUNNING",
+      resumability: "open"
+    });
+    expect(resumedRecord?.runtimeReleasedAt).toBeUndefined();
+    expect(resumedRecord?.runtimeReleaseReason).toBeUndefined();
   });
 });

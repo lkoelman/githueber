@@ -62,6 +62,17 @@ export class CodexSessionManager extends HarnessSessionManager {
   }
 
   /**
+   * Sends feedback to Codex and persists the cleared release metadata after a successful resume.
+   *
+   * Side effects: may reopen a released Codex thread, starts or steers a turn, and rewrites the
+   * registry with the current running session state.
+   */
+  override async sendMessageToSession(sessionId: string, message: string): Promise<void> {
+    await super.sendMessageToSession(sessionId, message);
+    this.persistTrackedSession(sessionId, "RUNNING");
+  }
+
+  /**
    * Restores persisted Codex records that still exist in app-server history and remain actionable.
    *
    * Side effects: queries the Codex client, repopulates in-memory session records, and prunes stale
@@ -124,7 +135,7 @@ export class CodexSessionManager extends HarnessSessionManager {
       return;
     }
 
-    const resumability = status === "PAUSED_AWAITING_APPROVAL" ? "resumable-after-stop" : "open";
+    const resumability = status === "PAUSED_AWAITING_APPROVAL" ? "resumable" : "open";
     const updatedSession = this.withCodexMetadata({ ...session, status, resumability });
     this.restoreSession(updatedSession);
     this.registry.upsert(this.toPersistedRecord(updatedSession));

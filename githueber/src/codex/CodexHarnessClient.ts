@@ -11,6 +11,7 @@ import type { ServerNotification } from "./generated/ServerNotification";
 import type { ServerRequest } from "./generated/ServerRequest";
 import type { CodexConfig } from "../models/types.ts";
 import type { ThreadStartParams } from "./generated/v2/ThreadStartParams";
+import type { ThreadResumeParams } from "./generated/v2/ThreadResumeParams";
 import type { ThreadListParams } from "./generated/v2/ThreadListParams";
 import type { ThreadSetNameParams } from "./generated/v2/ThreadSetNameParams";
 import type { TurnInterruptParams } from "./generated/v2/TurnInterruptParams";
@@ -215,6 +216,49 @@ class CodexStdioHarnessClient implements HarnessClientLike {
     runtime.streamedItemIds.clear();
     runtime.process.kill();
     this.sessions.delete(sessionId);
+  }
+
+  /** Tears down only the live app-server runtime while preserving the durable Codex thread. */
+  async releaseSessionRuntime(sessionId: string): Promise<void> {
+    const runtime = this.getSession(sessionId);
+    runtime.streamedItemIds.clear();
+    runtime.process.kill();
+    this.sessions.delete(sessionId);
+  }
+
+  /** Reopens a durable Codex thread in a new app-server process and starts the feedback turn. */
+  async resumeSession(sessionId: string, payload: HarnessMessagePayload): Promise<void> {
+    const runtime = this.createRuntime();
+    await this.initializeRuntime(runtime);
+
+    const resumeResult = await this.sendRequest<{ thread: { id: string }; cwd?: string }>(runtime, {
+      method: "thread/resume",
+      id: runtime.nextRequestId++,
+      params: {
+        threadId: sessionId,
+        model: this.config.model,
+        cwd: null,
+        approvalPolicy: this.config.approvalPolicy ?? "on-request",
+        sandbox: this.config.sandbox ?? "workspace-write",
+        persistExtendedHistory: true
+      } satisfies ThreadResumeParams
+    });
+
+    runtime.threadId = resumeResult.thread.id;
+    runtime.cwd = resumeResult.cwd;
+    this.sessions.set(resumeResult.thread.id, runtime);
+
+    const turnResult = await this.sendRequest<{ turn: { id: string } }>(runtime, {
+      method: "turn/start",
+      id: runtime.nextRequestId++,
+      params: {
+        threadId: resumeResult.thread.id,
+        cwd: resumeResult.cwd ?? null,
+        input: buildUserInput(payload.text)
+      } satisfies TurnStartParams
+    });
+
+    runtime.activeTurnId = turnResult.turn.id;
   }
 
   /** Stops every tracked app-server subprocess owned by this client. */

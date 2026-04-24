@@ -63,6 +63,17 @@ export class OpenCodeSessionManager extends HarnessSessionManager {
   }
 
   /**
+   * Sends feedback to OpenCode and persists the cleared release metadata after a successful resume.
+   *
+   * Side effects: sends a prompt to the native OpenCode session and rewrites the registry with the
+   * current running session state.
+   */
+  override async sendMessageToSession(sessionId: string, message: string): Promise<void> {
+    await super.sendMessageToSession(sessionId, message);
+    this.persistTrackedSession(sessionId, "RUNNING");
+  }
+
+  /**
    * Restores persisted records that still exist in the OpenCode server and are still actionable.
    *
    * Side effects: queries the OpenCode server for available sessions and statuses, repopulates the
@@ -105,7 +116,15 @@ export class OpenCodeSessionManager extends HarnessSessionManager {
         repoName: record.repoName,
         issueNumber: record.issueNumber,
         status: restoredStatus,
-        agentName: record.agentName
+        agentName: record.agentName,
+        harness: record.harness,
+        title: record.title,
+        resumability: record.resumability,
+        resumeHint: record.resumeHint,
+        startedAt: record.startedAt,
+        lastActiveAt: record.lastActiveAt,
+        runtimeReleasedAt: record.runtimeReleasedAt,
+        runtimeReleaseReason: record.runtimeReleaseReason
       };
       this.restoreSession(restoredRecord);
       restored.push(this.toPersistedRecord(restoredRecord));

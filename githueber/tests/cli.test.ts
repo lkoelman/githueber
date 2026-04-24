@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { parseCliArgs } from "../src/cli/args.ts";
-import { formatCliError } from "../src/cli/index.ts";
+import { formatCliError, formatSessions } from "../src/cli/index.ts";
 
 describe("parseCliArgs", () => {
   test("builds start daemon command", () => {
@@ -172,5 +172,56 @@ describe("formatCliError", () => {
     error.stack = "Error: boom\n    at line 1";
 
     expect(formatCliError(error, true)).toBe("Error: boom\n    at line 1");
+  });
+});
+
+describe("formatSessions", () => {
+  test("renders released session age and resume hints", () => {
+    expect(
+      formatSessions(
+        [
+          {
+            sessionId: "thr_123",
+            repositoryKey: "frontend",
+            repoOwner: "acme",
+            repoName: "web",
+            issueNumber: 42,
+            status: "PAUSED_AWAITING_APPROVAL",
+            agentName: "github-worker-agent",
+            harness: "codex",
+            resumability: "resumable",
+            runtimeReleasedAt: "2026-04-24T12:00:00.000Z",
+            runtimeReleaseReason: "awaiting_user",
+            resumeHint: "codex resume --include-non-interactive thr_123"
+          }
+        ],
+        new Date("2026-04-24T12:05:30.000Z")
+      )
+    ).toBe(
+      [
+        "thr_123 frontend#42 acme/web codex PAUSED_AWAITING_APPROVAL resumable",
+        "  ended 2026-04-24T12:00:00.000Z (ended 5m ago)",
+        "  resume: codex resume --include-non-interactive thr_123"
+      ].join("\n")
+    );
+  });
+
+  test("renders running sessions without ended age", () => {
+    expect(
+      formatSessions(
+        [
+          {
+            sessionId: "ses_123",
+            repositoryKey: "frontend",
+            repoOwner: "acme",
+            repoName: "web",
+            issueNumber: 42,
+            status: "RUNNING",
+            agentName: "github-worker-agent"
+          }
+        ],
+        new Date("2026-04-24T12:05:30.000Z")
+      )
+    ).toBe("ses_123 frontend#42 acme/web RUNNING running");
   });
 });

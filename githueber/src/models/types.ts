@@ -112,6 +112,14 @@ export interface AgentSessionRecord extends RepositoryIdentity {
   resumability?: "open" | "resumable-after-stop" | "resumable" | "unknown";
   /** Native harness command an operator can use to resume the session. */
   resumeHint?: string;
+  /** ISO timestamp when this daemon first started tracking the session. */
+  startedAt?: string;
+  /** ISO timestamp for the most recent daemon-observed activity on this session. */
+  lastActiveAt?: string;
+  /** ISO timestamp when the live harness runtime was released while keeping daemon tracking. */
+  runtimeReleasedAt?: string;
+  /** Why the daemon released the live harness runtime. */
+  runtimeReleaseReason?: "awaiting_user" | "daemon_shutdown" | "operator_stop";
 }
 
 /** Structured event emitted for operator echoing and other session observers. */
@@ -290,6 +298,8 @@ export interface HarnessClientLike {
   connect(): Promise<void>;
   createSession(request: HarnessSessionStartRequest): Promise<{ id: string }>;
   sendMessage(sessionId: string, payload: HarnessMessagePayload): Promise<void>;
+  releaseSessionRuntime?(sessionId: string): Promise<void>;
+  resumeSession?(sessionId: string, payload: HarnessMessagePayload): Promise<void>;
   stopSession?(sessionId: string): Promise<void>;
   close?(): Promise<void> | void;
   getServerUrl?(): string;
@@ -306,6 +316,7 @@ export interface SessionManagerLike {
   listSessions(): AgentSessionRecord[];
   startNewSession(issue: GitHubIssue, agentName: string, prompt: string): Promise<void>;
   sendMessageToSession(sessionId: string, message: string): Promise<void>;
+  releaseSessionRuntime(sessionId: string): Promise<void>;
   stopSession(sessionId: string): Promise<void>;
   onSessionPaused(callback: (sessionId: string) => Promise<void> | void): void;
   onSessionCompleted(callback: (sessionId: string) => Promise<void> | void): void;

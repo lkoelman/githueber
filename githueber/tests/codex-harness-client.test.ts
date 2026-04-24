@@ -441,6 +441,75 @@ describe("createCodexHarnessClient", () => {
     });
   });
 
+  test("releases a runtime and resumes the durable thread with a new turn", async () => {
+    const initial = createFakeCodexProcess();
+    const resumed = createFakeCodexProcess();
+    const fakes = [initial, resumed];
+
+    const client = createCodexHarnessClient(
+      {
+        command: "codex",
+        args: "app-server",
+        model: "gpt-5.4"
+      },
+      () => fakes.shift()!.process
+    );
+
+    const createPromise = client.createSession({
+      agentDefinition: "github-worker-agent",
+      initialPrompt: "Start working on issue 42.",
+      cwd: "/repos/frontend"
+    });
+
+    await waitFor(() => initial.writes.length === 1);
+    initial.send({ id: 1, result: { userAgent: "codex" } });
+    await waitFor(() => initial.writes.length === 3);
+    initial.send({ id: 2, result: { thread: { id: "thr_resume" } } });
+    await waitFor(() => initial.writes.length === 4);
+    initial.send({ id: 3, result: { turn: { id: "turn_initial", items: [], status: "in_progress", error: null } } });
+    await createPromise;
+
+    await client.releaseSessionRuntime?.("thr_resume");
+
+    expect(initial.killed).toBe(true);
+    expect(initial.writes).toHaveLength(4);
+
+    const resumePromise = client.resumeSession?.("thr_resume", { text: "User approved. Proceed." });
+
+    await waitFor(() => resumed.writes.length === 1);
+    resumed.send({ id: 1, result: { userAgent: "codex" } });
+    await waitFor(() => resumed.writes.length === 3);
+
+    expect(resumed.writes[2]).toEqual({
+      method: "thread/resume",
+      id: 2,
+      params: {
+        threadId: "thr_resume",
+        model: "gpt-5.4",
+        cwd: null,
+        approvalPolicy: "on-request",
+        sandbox: "workspace-write",
+        persistExtendedHistory: true
+      }
+    });
+
+    resumed.send({ id: 2, result: { thread: { id: "thr_resume" }, cwd: "/repos/frontend" } });
+    await waitFor(() => resumed.writes.length === 4);
+
+    expect(resumed.writes[3]).toEqual({
+      method: "turn/start",
+      id: 3,
+      params: {
+        threadId: "thr_resume",
+        cwd: "/repos/frontend",
+        input: [{ type: "text", text: "User approved. Proceed.", text_elements: [] }]
+      }
+    });
+
+    resumed.send({ id: 3, result: { turn: { id: "turn_resumed", items: [], status: "in_progress", error: null } } });
+    await resumePromise;
+  });
+
   test("streams plan, command, and file-change output while still ignoring reasoning", async () => {
     const fake = createFakeCodexProcess();
     const deltas: Array<{ sessionId: string; message: string }> = [];

@@ -75,6 +75,11 @@ export class MultiHarnessSessionManager implements SessionManagerLike {
     await this.getManagerForSession(sessionId).sendMessageToSession(sessionId, message);
   }
 
+  /** Releases a live runtime through the child manager that owns the session id. */
+  async releaseSessionRuntime(sessionId: string): Promise<void> {
+    await this.getManagerForSession(sessionId).releaseSessionRuntime(sessionId);
+  }
+
   /** Stops a session through the child manager that owns the session id. */
   async stopSession(sessionId: string): Promise<void> {
     await this.getManagerForSession(sessionId).stopSession(sessionId);

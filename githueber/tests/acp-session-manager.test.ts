@@ -4,6 +4,63 @@ import { createACPClient } from "../src/opencode/OpenCodeHarnessClient.ts";
 import type { GitHubIssue } from "../src/models/types.ts";
 
 describe("createACPClient", () => {
+  test("releases by aborting the active turn and resumes with promptAsync on same session", async () => {
+    const calls: Array<{ method: string; payload?: unknown }> = [];
+
+    async function* eventStream(): AsyncGenerator<any> {}
+
+    const client = await createACPClient(
+      {},
+      {
+        createRuntime: async () => ({
+          client: {
+            event: {
+              subscribe: async () => ({ stream: eventStream() })
+            },
+            session: {
+              create: async () => ({ data: { id: "ses_123" } }),
+              promptAsync: async (payload: unknown) => {
+                calls.push({ method: "session.promptAsync", payload });
+                return { data: { info: { id: "msg_x" }, parts: [] } };
+              },
+              abort: async (payload: unknown) => {
+                calls.push({ method: "session.abort", payload });
+                return { data: true };
+              },
+              list: async () => ({ data: [] }),
+              status: async () => ({ data: {} })
+            }
+          } as any,
+          server: {
+            url: "http://127.0.0.1:4100",
+            close() {}
+          }
+        })
+      }
+    );
+
+    await client.releaseSessionRuntime?.("ses_123");
+    await client.resumeSession?.("ses_123", { text: "User approved. Proceed." });
+
+    expect(calls).toEqual([
+      {
+        method: "session.abort",
+        payload: {
+          path: { id: "ses_123" }
+        }
+      },
+      {
+        method: "session.promptAsync",
+        payload: {
+          path: { id: "ses_123" },
+          body: {
+            parts: [{ type: "text", text: "User approved. Proceed." }]
+          }
+        }
+      }
+    ]);
+  });
+
   test("uses the OpenCode SDK and listens to lifecycle events from the event stream", async () => {
     const calls: Array<{ method: string; payload?: unknown }> = [];
     const events = [
@@ -174,6 +231,73 @@ describe("createACPClient", () => {
 });
 
 describe("HarnessSessionManager session events", () => {
+  test("releases runtime on pause and resumes released sessions on feedback", async () => {
+    const listeners = new Map<string, (payload: { sessionId: string }) => void>();
+    const calls: string[] = [];
+
+    const manager = new HarnessSessionManager({
+      async connect(): Promise<void> {},
+      async createSession(): Promise<{ id: string }> {
+        return { id: "ses_123" };
+      },
+      async sendMessage(): Promise<void> {
+        calls.push("sendMessage");
+      },
+      async releaseSessionRuntime(sessionId): Promise<void> {
+        calls.push(`release:${sessionId}`);
+      },
+      async resumeSession(sessionId, payload): Promise<void> {
+        calls.push(`resume:${sessionId}:${payload.text}`);
+      },
+      on(eventName, callback) {
+        listeners.set(eventName, callback);
+      }
+    });
+
+    await manager.startNewSession(
+      {
+        repositoryKey: "frontend",
+        repoOwner: "acme",
+        repoName: "web",
+        localRepoPath: "/repos/web",
+        id: 42,
+        number: 42,
+        title: "Fix bug",
+        body: "Details",
+        labels: ["agent-queue"],
+        state: "open",
+        updatedAt: "2026-04-07T00:00:00Z",
+        comments: []
+      },
+      "github-worker-agent",
+      "Start working on issue 42."
+    );
+
+    listeners.get("sessionPaused")?.({ sessionId: "ses_123" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const paused = manager.getSessionForIssue("frontend", 42);
+    expect(paused).toMatchObject({
+      sessionId: "ses_123",
+      status: "PAUSED_AWAITING_APPROVAL",
+      runtimeReleaseReason: "awaiting_user",
+      resumability: "resumable"
+    });
+    expect(paused?.runtimeReleasedAt).toBeString();
+    expect(calls).toEqual(["release:ses_123"]);
+
+    await manager.sendMessageToSession("ses_123", "User approved. Proceed.");
+
+    expect(calls).toEqual(["release:ses_123", "resume:ses_123:User approved. Proceed."]);
+    const resumed = manager.getSessionForIssue("frontend", 42);
+    expect(resumed).toMatchObject({
+      sessionId: "ses_123",
+      status: "RUNNING"
+    });
+    expect(resumed?.runtimeReleasedAt).toBeUndefined();
+    expect(resumed?.runtimeReleaseReason).toBeUndefined();
+  });
+
   test("publishes structured events for session startup, prompts, streamed deltas, and lifecycle updates", async () => {
     const listeners = new Map<string, (payload: { sessionId: string }) => void>();
     const events: Array<Record<string, unknown>> = [];

@@ -150,6 +150,7 @@ The prompt builder converts a `GitHubIssue` into structured context, including r
   - `getSessionForIssue(repositoryKey, issueNumber)`
   - `startNewSession(issue, agentName, prompt)`
   - `sendMessageToSession(sessionId, message)`
+  - `releaseSessionRuntime(sessionId)`
   - `stopSession(sessionId)`
   - `onSessionPaused(callback)`
   - `onSessionCompleted(callback)`
@@ -157,9 +158,11 @@ The prompt builder converts a `GitHubIssue` into structured context, including r
 
 `HarnessSessionManager` stores active sessions keyed by repository plus issue number so identical issue numbers in different repositories remain isolated. `MultiHarnessSessionManager` composes one harness-specific manager per required backend and routes repository-scoped issues to the correct one at runtime.
 
-The OpenCode harness client uses the official `@opencode-ai/sdk` and spawns its own local OpenCode server with the configured server-side permission overrides before subscribing to the server event stream. `OpenCodeSessionManager` persists the repository-issue-to-session mapping in `runtime/opencode-sessions.json` so paused or still-running OpenCode sessions can be restored after daemon restart.
+The OpenCode harness client uses the official `@opencode-ai/sdk` and spawns its own local OpenCode server with the configured server-side permission overrides before subscribing to the server event stream. `OpenCodeSessionManager` persists the repository-issue-to-session mapping in `runtime/opencode-sessions.json` so paused or still-running OpenCode sessions can be restored after daemon restart. On pause, it aborts the active turn but keeps the OpenCode session id and daemon mapping; later GitHub approval or revision feedback is sent with `promptAsync` to that same native session.
 
-The Codex harness client launches `codex app-server` over stdio, performs the initialize handshake, starts a durable named app-server thread plus turn, and maps app-server approval or user-input states into the daemon's normalized pause/completion lifecycle. `CodexSessionManager` persists daemon-owned Codex thread mappings in `runtime/codex-sessions.json`, restores still-actionable stored Codex threads by id across the session sources used by app-server clients, and adds native Codex resume hints for `gbr sessions`.
+The Codex harness client launches `codex app-server` over stdio, performs the initialize handshake, starts a durable named app-server thread plus turn, and maps app-server approval or user-input states into the daemon's normalized pause/completion lifecycle. On pause, it kills only the per-session app-server subprocess and removes the in-memory runtime entry, leaving the durable Codex thread and daemon mapping intact. When GitHub feedback arrives, it launches a new app-server subprocess, initializes with the experimental API, calls `thread/resume` for the stored thread id, then starts a new turn with the feedback. `CodexSessionManager` persists daemon-owned Codex thread mappings in `runtime/codex-sessions.json`, restores still-actionable stored Codex threads by id across the session sources used by app-server clients, and adds native Codex resume hints for `gbr sessions`.
+
+`stopSession(sessionId)` is the destructive operator or shutdown path from Githueber's perspective: it stops the live runtime and removes daemon tracking. `releaseSessionRuntime(sessionId)` is the non-destructive pause path: it releases local runtime resources while preserving repository/issue/session mappings and native harness history.
 
 ### 7. Daemon Coordinator
 
@@ -214,7 +217,7 @@ Supported commands are:
   - `parseCliArgs(argv) => CliCommand`
   - CLI commands: `start [--echo] [--harness <opencode|codex>]`, `sessions`, `poll`, `stop <sessionId>`, `config <key> <value>`
 
-The CLI does not implement daemon behavior itself. It translates shell arguments into an `IPCRequest`, opens a Unix socket connection to the daemon, sends one JSON message, and prints the JSON response or status message. For `poll`, the CLI renders a readable repository-by-repository summary of fetched issues and dispatches. For `start --echo`, it starts the daemon in-process and subscribes a terminal sink to the session interaction stream so user-visible session output is rendered as it streams, alongside prompt and lifecycle markers. `start --harness` overrides the configured default harness for repositories that do not define their own `harness`.
+The CLI does not implement daemon behavior itself. It translates shell arguments into an `IPCRequest`, opens a Unix socket connection to the daemon, sends one JSON message, and prints the JSON response or status message. For `sessions`, the CLI renders daemon-tracked sessions with status, resumability, exact released-runtime timestamp, elapsed `ended N ago` age, and resume hints when available; the elapsed age is a context-cache freshness signal, not a completion indicator. For `poll`, the CLI renders a readable repository-by-repository summary of fetched issues and dispatches. For `start --echo`, it starts the daemon in-process and subscribes a terminal sink to the session interaction stream so user-visible session output is rendered as it streams, alongside prompt and lifecycle markers. `start --harness` overrides the configured default harness for repositories that do not define their own `harness`.
 
 ## Component Interaction
 
@@ -248,7 +251,7 @@ The CLI-to-daemon path is local and synchronous:
 3. [src/cli/index.ts](../src/cli/index.ts) opens a Unix socket connection to the path configured by `GITHUBER_SOCKET_PATH` or the default socket path.
 4. [IPCServer.ts](../src/ipc/IPCServer.ts) accepts the connection and parses the JSON payload.
 5. [handler.ts](../src/ipc/handler.ts) dispatches the request to the `DaemonCore`-backed target:
-   - `LIST_SESSIONS` reads the active session table
+   - `LIST_SESSIONS` reads the active session table; the daemon returns structured records and the CLI renders the human-readable session list
    - `STOP_SESSION` aborts a session by session id
    - `TRIGGER_POLL` forces an immediate poll cycle across repositories and returns the fetched/dispatched issue summary
    - `SET_CONFIG` changes an in-memory config value

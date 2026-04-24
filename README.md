@@ -114,7 +114,7 @@ Available commands:
 - `gbr start`: start the daemon service directly from the CLI
   - `--harness <opencode|codex>`: override the configured default harness for repositories that do not set their own `harness`
   - `--echo`: stream user-visible Codex/OpenCode session output to stdout in real time while keeping lifecycle markers for prompts, pauses, and completion
-- `gbr sessions`: list active daemon-tracked sessions, including the native harness session id plus repository key and owner/repo identity
+- `gbr sessions`: list active daemon-tracked sessions, including the native harness session id, repository identity, resumability, and released-runtime age for paused sessions
 - `gbr poll`: trigger an immediate GitHub poll cycle across all configured repositories and print the fetched and dispatched issues
 - `gbr stop <session-id>`: stop a tracked harness session by session id
 - `gbr config <key> <value>`: change an in-memory config value in the running daemon
@@ -189,7 +189,7 @@ When `isolation.worktrees` is set to an absolute directory, prompt generation sw
 
 The harness integrations emit a structured session interaction stream inside the daemon. `gbr start --echo` renders streamed user-visible session output from that event stream in real time, while the same interface remains suitable for a future `gbr follow <session-id>` IPC command.
 
-For OpenCode, Githueber uses the official SDK and starts its own local OpenCode server for daemon-managed work. The `opencode` config section is now where you set server-side permission overrides such as `permission.external_directory: allow`; these are passed into the SDK server config when Githueber launches the server. Daemon-created OpenCode sessions are native OpenCode sessions, so they appear in `opencode session list`. Githueber also persists the repository/issue-to-session mapping under the config directory so paused or still-running OpenCode sessions can be restored after daemon restart.
+For OpenCode, Githueber uses the official SDK and starts its own local OpenCode server for daemon-managed work. The `opencode` config section is now where you set server-side permission overrides such as `permission.external_directory: allow`; these are passed into the SDK server config when Githueber launches the server. Daemon-created OpenCode sessions are native OpenCode sessions, so they appear in `opencode session list`. Githueber also persists the repository/issue-to-session mapping under the config directory so paused or still-running OpenCode sessions can be restored after daemon restart. When a session pauses for approval, Githueber aborts the active OpenCode turn, keeps the native session id and daemon mapping, and sends GitHub feedback back into the same OpenCode session when work resumes.
 
 ## Codex Harness Notes
 
@@ -197,9 +197,9 @@ The Codex harness launches `codex app-server` over stdio for each daemon-managed
 
 Codex thread startup behavior is configurable in `codex.approval_policy` (`untrusted`, `on-failure`, `on-request`, `never`) and `codex.sandbox` (`read-only`, `workspace-write`, `danger-full-access`). If omitted, Githueber keeps the current defaults of `on-request` and `workspace-write`.
 
-Daemon-created Codex sessions are started as durable app-server threads, named with the repository/issue/agent label, and persisted under the config directory in `runtime/codex-sessions.json`. Depending on the Codex CLI version, these app-server-created threads may be recorded under the `vscode` or `appServer` session source. Use `codex resume --all --include-non-interactive` or `codex resume --include-non-interactive <thread-id>` when resuming them from the Codex CLI.
+Daemon-created Codex sessions are started as durable app-server threads, named with the repository/issue/agent label, and persisted under the config directory in `runtime/codex-sessions.json`. Depending on the Codex CLI version, these app-server-created threads may be recorded under the `vscode` or `appServer` session source. When a Codex session pauses for approval, Githueber releases the live `codex app-server` subprocess without deleting the durable thread or daemon mapping. Use `codex resume --all --include-non-interactive` or `codex resume --include-non-interactive <thread-id>` when resuming them from the Codex CLI.
 
-`gbr sessions` includes Codex-specific metadata for daemon-tracked sessions, including `harness: "codex"`, the Codex thread title, a `resumability` label, and a `resumeHint`. A still-open Codex app-server thread is labeled `open`; after Githueber stops tracking it, the persisted Codex thread remains available to the native Codex CLI with `--include-non-interactive`.
+`gbr sessions` includes Codex-specific metadata for daemon-tracked sessions, including `harness: "codex"`, the Codex thread title, a `resumability` label, and a `resumeHint`. A running Codex app-server thread is labeled `open`; a paused session whose live runtime was released is labeled `resumable` and shows the exact release time plus an elapsed `ended N ago` age. Treat that age as a context-cache freshness signal before resuming manually. `gbr stop` remains destructive from Githueber's perspective: it stops the live runtime and removes daemon tracking, while the persisted Codex thread may still be available to the native Codex CLI with `--include-non-interactive`.
 
 The vendored protocol types under `src/codex/generated/` can be regenerated with:
 

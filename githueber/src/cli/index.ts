@@ -2,7 +2,7 @@
 import net from "node:net";
 import { homedir } from "node:os";
 import { parseCliArgs } from "./args.ts";
-import type { IPCResponse, ManualPollSummary } from "../models/types.ts";
+import type { AgentSessionRecord, IPCResponse, ManualPollSummary } from "../models/types.ts";
 import { startDaemon } from "../startDaemon.ts";
 import { installHarnessAssets } from "../harnessAssets/index.ts";
 
@@ -59,6 +59,62 @@ export function formatManualPollSummary(summary: ManualPollSummary): string {
   }
 
   return lines.join("\n");
+}
+
+/** Renders daemon-tracked sessions with released-runtime age for operator cache awareness. */
+export function formatSessions(sessions: AgentSessionRecord[], now = new Date()): string {
+  if (sessions.length === 0) {
+    return "No active daemon-tracked sessions.";
+  }
+
+  return sessions
+    .map((session) => {
+      const parts = [
+        session.sessionId,
+        `${session.repositoryKey}#${session.issueNumber}`,
+        `${session.repoOwner}/${session.repoName}`,
+        session.harness,
+        session.status,
+        session.runtimeReleasedAt ? session.resumability : "running"
+      ].filter((part): part is string => Boolean(part));
+
+      const lines = [parts.join(" ")];
+
+      if (session.runtimeReleasedAt) {
+        lines.push(
+          `  ended ${session.runtimeReleasedAt} (${formatEndedAge(session.runtimeReleasedAt, now)})`
+        );
+      }
+
+      if (session.resumeHint) {
+        lines.push(`  resume: ${session.resumeHint}`);
+      }
+
+      return lines.join("\n");
+    })
+    .join("\n");
+}
+
+/** Formats elapsed time since runtime release using compact human units. */
+function formatEndedAge(runtimeReleasedAt: string, now: Date): string {
+  const releasedAt = new Date(runtimeReleasedAt).getTime();
+  const elapsedSeconds = Math.max(0, Math.floor((now.getTime() - releasedAt) / 1000));
+
+  if (elapsedSeconds < 60) {
+    return `ended ${elapsedSeconds}s ago`;
+  }
+
+  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+  if (elapsedMinutes < 60) {
+    return `ended ${elapsedMinutes}m ago`;
+  }
+
+  const elapsedHours = Math.floor(elapsedMinutes / 60);
+  if (elapsedHours < 48) {
+    return `ended ${elapsedHours}h ago`;
+  }
+
+  return `ended ${Math.floor(elapsedHours / 24)}d ago`;
 }
 
 /** Sends a single JSON IPC request to the daemon and resolves with the parsed response payload. */
@@ -119,6 +175,11 @@ async function main(): Promise<void> {
 
     if (command.request.command === "TRIGGER_POLL" && response.data) {
       console.log(formatManualPollSummary(response.data as ManualPollSummary));
+      return;
+    }
+
+    if (command.request.command === "LIST_SESSIONS" && response.data) {
+      console.log(formatSessions(response.data as AgentSessionRecord[]));
       return;
     }
 
