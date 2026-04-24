@@ -11,10 +11,13 @@ import type { ServerNotification } from "./generated/ServerNotification";
 import type { ServerRequest } from "./generated/ServerRequest";
 import type { CodexConfig } from "../models/types.ts";
 import type { ThreadStartParams } from "./generated/v2/ThreadStartParams";
+import type { ThreadListParams } from "./generated/v2/ThreadListParams";
+import type { ThreadSetNameParams } from "./generated/v2/ThreadSetNameParams";
 import type { TurnInterruptParams } from "./generated/v2/TurnInterruptParams";
 import type { TurnStartParams } from "./generated/v2/TurnStartParams";
 import type { TurnSteerParams } from "./generated/v2/TurnSteerParams";
 import type { ThreadItem } from "./generated/v2/ThreadItem";
+import type { ThreadStatus } from "./generated/v2/ThreadStatus";
 
 interface ChildProcessLike {
   stdin: Writable & { write(chunk: string): boolean };
@@ -84,14 +87,27 @@ class CodexStdioHarnessClient implements HarnessClientLike {
         cwd: request.cwd ?? null,
         approvalPolicy: this.config.approvalPolicy ?? "on-request",
         sandbox: this.config.sandbox ?? "workspace-write",
+        serviceName: "githueber",
+        ephemeral: false,
         experimentalRawEvents: false,
-        persistExtendedHistory: false
+        persistExtendedHistory: true
       } satisfies ThreadStartParams
     });
 
     runtime.threadId = threadResult.thread.id;
     runtime.cwd = request.cwd;
     this.sessions.set(threadResult.thread.id, runtime);
+
+    if (request.title) {
+      await this.sendRequest(runtime, {
+        method: "thread/name/set",
+        id: runtime.nextRequestId++,
+        params: {
+          threadId: threadResult.thread.id,
+          name: request.title
+        } satisfies ThreadSetNameParams
+      });
+    }
 
     const turnResult = await this.sendRequest<{ turn: { id: string } }>(runtime, {
       method: "turn/start",
@@ -106,6 +122,58 @@ class CodexStdioHarnessClient implements HarnessClientLike {
     runtime.activeTurnId = turnResult.turn.id;
 
     return { id: threadResult.thread.id };
+  }
+
+  /** Lists durable Codex threads so the daemon can restore known app-server mappings by id. */
+  async listSessions(): Promise<Array<{ id: string; title?: string; status?: ThreadStatus }>> {
+    const runtime = this.createRuntime();
+
+    try {
+      await this.initializeRuntime(runtime);
+      const sessions: Array<{ id: string; title?: string; status?: ThreadStatus }> = [];
+      let cursor: string | null = null;
+
+      do {
+        const params: ThreadListParams = {
+          ...(cursor ? { cursor } : {}),
+          limit: 100,
+          sourceKinds: ["appServer", "vscode"],
+          archived: false
+        };
+
+        const result = await this.sendRequest<{
+          data: Array<{ id: string; name?: string | null; status?: ThreadStatus }>;
+          nextCursor: string | null;
+        }>(runtime, {
+          method: "thread/list",
+          id: runtime.nextRequestId++,
+          params
+        });
+
+        sessions.push(
+          ...result.data.map((thread) => ({
+            id: thread.id,
+            title: thread.name ?? undefined,
+            status: thread.status
+          }))
+        );
+        cursor = result.nextCursor;
+      } while (cursor);
+
+      return sessions;
+    } finally {
+      runtime.process.kill();
+    }
+  }
+
+  /** Returns status by Codex thread id for stored app-server sessions. */
+  async getSessionStatuses(): Promise<Record<string, { type: string }>> {
+    const sessions = await this.listSessions();
+    return Object.fromEntries(
+      sessions.flatMap((session) =>
+        session.status ? [[session.id, { type: session.status.type }]] : []
+      )
+    );
   }
 
   /** Resumes an active Codex turn by resolving a pending request or steering the active turn. */
@@ -149,6 +217,15 @@ class CodexStdioHarnessClient implements HarnessClientLike {
     this.sessions.delete(sessionId);
   }
 
+  /** Stops every tracked app-server subprocess owned by this client. */
+  close(): void {
+    for (const [sessionId, runtime] of this.sessions.entries()) {
+      runtime.streamedItemIds.clear();
+      runtime.process.kill();
+      this.sessions.delete(sessionId);
+    }
+  }
+
   /** Starts the stdio subprocess and begins consuming JSONL messages. */
   private createRuntime(): SessionRuntime {
     const commandArgs = splitArgs(this.config.args);
@@ -176,6 +253,9 @@ class CodexStdioHarnessClient implements HarnessClientLike {
           name: "githueber",
           title: "Githueber",
           version: "0.1.0"
+        },
+        capabilities: {
+          experimentalApi: true
         }
       } satisfies InitializeParams
     });

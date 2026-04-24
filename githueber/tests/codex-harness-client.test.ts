@@ -141,6 +141,9 @@ describe("createCodexHarnessClient", () => {
             name: "githueber",
             title: "Githueber",
             version: "0.1.0"
+          },
+          capabilities: {
+            experimentalApi: true
           }
         }
       },
@@ -153,8 +156,10 @@ describe("createCodexHarnessClient", () => {
           cwd: "/repos/frontend",
           approvalPolicy: "on-request",
           sandbox: "workspace-write",
+          serviceName: "githueber",
+          ephemeral: false,
           experimentalRawEvents: false,
-          persistExtendedHistory: false
+          persistExtendedHistory: true
         }
       },
       {
@@ -216,8 +221,10 @@ describe("createCodexHarnessClient", () => {
         cwd: "/repos/frontend",
         approvalPolicy: "never",
         sandbox: "danger-full-access",
+        serviceName: "githueber",
+        ephemeral: false,
         experimentalRawEvents: false,
-        persistExtendedHistory: false
+        persistExtendedHistory: true
       }
     });
 
@@ -226,6 +233,115 @@ describe("createCodexHarnessClient", () => {
     fake.send({ id: 3, result: { turn: { id: "turn_custom", items: [], status: "in_progress", error: null } } });
 
     await createPromise;
+  });
+
+  test("starts durable named app-server threads so Codex CLI can resume them", async () => {
+    const fake = createFakeCodexProcess();
+
+    const client = createCodexHarnessClient(
+      {
+        command: "codex",
+        args: "app-server",
+        model: "gpt-5.4"
+      },
+      () => fake.process
+    );
+
+    const createPromise = client.createSession({
+      agentDefinition: "github-worker-agent",
+      initialPrompt: "Start working on issue 42.",
+      cwd: "/repos/frontend",
+      title: "githueber frontend#42 github-worker-agent"
+    });
+
+    await waitFor(() => fake.writes.length === 1);
+    fake.send({ id: 1, result: { userAgent: "codex" } });
+    await waitFor(() => fake.writes.length === 3);
+
+    expect(fake.writes[2]).toEqual({
+      method: "thread/start",
+      id: 2,
+      params: {
+        model: "gpt-5.4",
+        cwd: "/repos/frontend",
+        approvalPolicy: "on-request",
+        sandbox: "workspace-write",
+        serviceName: "githueber",
+        ephemeral: false,
+        experimentalRawEvents: false,
+        persistExtendedHistory: true
+      }
+    });
+
+    fake.send({ id: 2, result: { thread: { id: "thr_named" } } });
+    await waitFor(() => fake.writes.length === 4);
+
+    expect(fake.writes[3]).toEqual({
+      method: "thread/name/set",
+      id: 3,
+      params: {
+        threadId: "thr_named",
+        name: "githueber frontend#42 github-worker-agent"
+      }
+    });
+
+    fake.send({ id: 3, result: { thread: { id: "thr_named" } } });
+    await waitFor(() => fake.writes.length === 5);
+    fake.send({ id: 4, result: { turn: { id: "turn_named", items: [], status: "in_progress", error: null } } });
+
+    expect(await createPromise).toEqual({ id: "thr_named" });
+  });
+
+  test("lists stored Codex threads from sources used by app-server clients", async () => {
+    const fake = createFakeCodexProcess();
+
+    const client = createCodexHarnessClient(
+      {
+        command: "codex",
+        args: "app-server",
+        model: "gpt-5.4"
+      },
+      () => fake.process
+    );
+
+    const listPromise = client.listSessions?.();
+
+    await waitFor(() => fake.writes.length === 1);
+    fake.send({ id: 1, result: { userAgent: "codex" } });
+    await waitFor(() => fake.writes.length === 3);
+
+    expect(fake.writes[2]).toEqual({
+      method: "thread/list",
+      id: 2,
+      params: {
+        limit: 100,
+        sourceKinds: ["appServer", "vscode"],
+        archived: false
+      }
+    });
+
+    fake.send({
+      id: 2,
+      result: {
+        data: [
+          {
+            id: "thr_listed",
+            name: "githueber frontend#42 github-worker-agent",
+            status: { type: "active", activeFlags: [] }
+          }
+        ],
+        nextCursor: null
+      }
+    });
+
+    expect(await listPromise).toEqual([
+      {
+        id: "thr_listed",
+        title: "githueber frontend#42 github-worker-agent",
+        status: { type: "active", activeFlags: [] }
+      }
+    ]);
+    expect(fake.killed).toBe(true);
   });
 
   test("answers request_user_input prompts with the provided message", async () => {

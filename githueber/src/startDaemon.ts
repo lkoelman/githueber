@@ -2,9 +2,10 @@ import { dirname, join } from "node:path";
 import { ConfigManager } from "./config/ConfigManager.ts";
 import { createSessionEventEchoListener } from "./sessionManager/sessionEvents.ts";
 import { createCodexHarnessClient } from "./codex/CodexHarnessClient.ts";
+import { CodexSessionManager } from "./codex/CodexSessionManager.ts";
+import { CodexSessionRegistry } from "./codex/CodexSessionRegistry.ts";
 import { DaemonCore } from "./daemon.ts";
 import { GitHubPoller, createOctokit, resolveGitHubToken } from "./github/GitHubPoller.ts";
-import { HarnessSessionManager } from "./sessionManager/HarnessSessionManager.ts";
 import { MultiHarnessSessionManager } from "./sessionManager/MultiHarnessSessionManager.ts";
 import { IPCServer } from "./ipc/IPCServer.ts";
 import type { DaemonConfig, HarnessName, RepositoryConfig, SessionManagerLike } from "./models/types.ts";
@@ -90,7 +91,15 @@ export async function createSessionManagerForConfig(
       throw new Error("Codex harness is not configured for this daemon");
     }
     const client = createCodexClient(config.codex);
-    harnessManagers.set("codex", new HarnessSessionManager(client));
+    harnessManagers.set(
+      "codex",
+      new CodexSessionManager(
+        client,
+        new CodexSessionRegistry(
+          join(options.stateRoot ?? process.cwd(), "runtime", "codex-sessions.json")
+        )
+      )
+    );
   }
 
   return new MultiHarnessSessionManager(

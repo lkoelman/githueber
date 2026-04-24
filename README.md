@@ -193,9 +193,13 @@ For OpenCode, Githueber uses the official SDK and starts its own local OpenCode 
 
 ## Codex Harness Notes
 
-The Codex harness launches `codex app-server` over stdio for each daemon-managed session. This implementation was generated and tested against `codex-cli 0.118.0`.
+The Codex harness launches `codex app-server` over stdio for each daemon-managed session. This implementation was generated and tested against `codex-cli 0.124.0`.
 
 Codex thread startup behavior is configurable in `codex.approval_policy` (`untrusted`, `on-failure`, `on-request`, `never`) and `codex.sandbox` (`read-only`, `workspace-write`, `danger-full-access`). If omitted, Githueber keeps the current defaults of `on-request` and `workspace-write`.
+
+Daemon-created Codex sessions are started as durable app-server threads, named with the repository/issue/agent label, and persisted under the config directory in `runtime/codex-sessions.json`. Depending on the Codex CLI version, these app-server-created threads may be recorded under the `vscode` or `appServer` session source. Use `codex resume --all --include-non-interactive` or `codex resume --include-non-interactive <thread-id>` when resuming them from the Codex CLI.
+
+`gbr sessions` includes Codex-specific metadata for daemon-tracked sessions, including `harness: "codex"`, the Codex thread title, a `resumability` label, and a `resumeHint`. A still-open Codex app-server thread is labeled `open`; after Githueber stops tracking it, the persisted Codex thread remains available to the native Codex CLI with `--include-non-interactive`.
 
 The vendored protocol types under `src/codex/generated/` can be regenerated with:
 

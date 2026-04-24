@@ -140,6 +140,8 @@ The prompt builder converts a `GitHubIssue` into structured context, including r
   - [OpenCodeHarnessClient.ts](../src/opencode/OpenCodeHarnessClient.ts)
   - [OpenCodeSessionManager.ts](../src/opencode/OpenCodeSessionManager.ts)
   - [OpenCodeSessionRegistry.ts](../src/opencode/OpenCodeSessionRegistry.ts)
+  - [CodexSessionManager.ts](../src/codex/CodexSessionManager.ts)
+  - [CodexSessionRegistry.ts](../src/codex/CodexSessionRegistry.ts)
   - [CodexHarnessClient.ts](../src/codex/CodexHarnessClient.ts)
 - Main interfaces:
   - `createOpenCodeHarnessClient(config, deps?)`
@@ -155,7 +157,9 @@ The prompt builder converts a `GitHubIssue` into structured context, including r
 
 `HarnessSessionManager` stores active sessions keyed by repository plus issue number so identical issue numbers in different repositories remain isolated. `MultiHarnessSessionManager` composes one harness-specific manager per required backend and routes repository-scoped issues to the correct one at runtime.
 
-The OpenCode harness client uses the official `@opencode-ai/sdk` and spawns its own local OpenCode server with the configured server-side permission overrides before subscribing to the server event stream. `OpenCodeSessionManager` persists the repository-issue-to-session mapping in `runtime/opencode-sessions.json` so paused or still-running OpenCode sessions can be restored after daemon restart. The Codex harness client launches `codex app-server` over stdio, performs the initialize handshake, starts a thread and turn, and maps app-server approval or user-input states into the daemon's normalized pause/completion lifecycle.
+The OpenCode harness client uses the official `@opencode-ai/sdk` and spawns its own local OpenCode server with the configured server-side permission overrides before subscribing to the server event stream. `OpenCodeSessionManager` persists the repository-issue-to-session mapping in `runtime/opencode-sessions.json` so paused or still-running OpenCode sessions can be restored after daemon restart.
+
+The Codex harness client launches `codex app-server` over stdio, performs the initialize handshake, starts a durable named app-server thread plus turn, and maps app-server approval or user-input states into the daemon's normalized pause/completion lifecycle. `CodexSessionManager` persists daemon-owned Codex thread mappings in `runtime/codex-sessions.json`, restores still-actionable stored Codex threads by id across the session sources used by app-server clients, and adds native Codex resume hints for `gbr sessions`.
 
 ### 7. Daemon Coordinator
 

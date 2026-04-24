@@ -104,6 +104,14 @@ export interface AgentSessionRecord extends RepositoryIdentity {
   status: SessionStatus;
   /** Agent name originally selected for this issue. */
   agentName: string;
+  /** Harness backend that owns the session when a manager can report it. */
+  harness?: HarnessName;
+  /** User-visible harness session title when one has been persisted. */
+  title?: string;
+  /** Operator-facing hint about whether and how the native harness can resume this session. */
+  resumability?: "open" | "resumable-after-stop" | "resumable" | "unknown";
+  /** Native harness command an operator can use to resume the session. */
+  resumeHint?: string;
 }
 
 /** Structured event emitted for operator echoing and other session observers. */
@@ -285,7 +293,7 @@ export interface HarnessClientLike {
   stopSession?(sessionId: string): Promise<void>;
   close?(): Promise<void> | void;
   getServerUrl?(): string;
-  listSessions?(): Promise<Array<{ id: string; title?: string }>>;
+  listSessions?(): Promise<Array<{ id: string; title?: string; status?: { type: string } }>>;
   getSessionStatuses?(): Promise<Record<string, { type: string }>>;
   on?(eventName: string, callback: (payload: { sessionId: string; message?: string }) => void): void;
 }
